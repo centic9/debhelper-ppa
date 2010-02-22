@@ -1,0 +1,8 @@
+if [ -x "/etc/init.d/#JOB#" ]; then
+	if [ -n "$2" ]; then
+		_dh_action=restart
+	else
+		_dh_action=start
+	fi
+	invoke-rc.d #JOB# $_dh_action || #ERROR_HANDLER#
+fi

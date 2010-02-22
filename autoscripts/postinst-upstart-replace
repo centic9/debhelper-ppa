@@ -1,0 +1,1 @@
+update-rc.d -f #SCRIPT# remove >/dev/null || #ERROR_HANDLER#
