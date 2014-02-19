@@ -2,46 +2,57 @@
 
 =head1 NAME
 
-dh_installinit - install upstart jobs or init scripts into package build directories
+dh_installinit - install service init files into package build directories
 
 =cut
 
 use strict;
 use Debian::Debhelper::Dh_Lib;
+use File::Find;
 
 =head1 SYNOPSIS
 
-B<dh_installinit> [S<I<debhelper options>>] [B<--name=>I<name>] [B<-n>] [B<-R>] [B<-r>] [B<-d>] [B<-O>] [S<B<--> I<params>>]
+B<dh_installinit> [S<I<debhelper options>>] [B<--name=>I<name>] [B<-n>] [B<-R>] [B<-r>] [B<-d>] [S<B<--> I<params>>]
 
 =head1 DESCRIPTION
 
-dh_installinit is a debhelper program that is responsible for installing
-upstart job files or init scripts with associated defaults files into package
-build directories, and in the former case providing compatibility handling
-for non-upstart systems.
+B<dh_installinit> is a debhelper program that is responsible for installing
+init scripts with associated defaults files, as well as upstart job files,
+and systemd service files into package build directories.
 
-It also automatically generates the postinst and postrm and prerm commands
-needed to set up the symlinks in /etc/rc*.d/ and to start and stop the init
-scripts.
+It also automatically generates the F<postinst> and F<postrm> and F<prerm>
+commands needed to set up the symlinks in F</etc/rc*.d/> to start and stop
+the init scripts.
 
 =head1 FILES
 
 =over 4
+
+=item debian/I<package>.init
+
+If this exists, it is installed into etc/init.d/I<package> in the package
+build directory.
+
+=item debian/I<package>.default
+
+If this exists, it is installed into etc/default/I<package> in the package
+build directory.
 
 =item debian/I<package>.upstart
 
 If this exists, it is installed into etc/init/I<package>.conf in the package
 build directory.
 
-=item debian/I<package>.init
+=item debian/I<package>.service
 
-Otherwise, if this exists, it is installed
-into etc/init.d/I<package> in the package build directory.
+If this exists, it is installed into lib/systemd/system/I<package>.service in
+the package build directory.
 
-=item debian/I<package>.default
+=item debian/I<package>.tmpfile
 
-If this exists, it is installed into etc/default/I<package> in the package
-build directory.
+If this exists, it is installed into usr/lib/tmpfiles.d/I<package>.conf in the
+package build directory. (The tmpfiles.d mechanism is currently only used
+by systemd.)
 
 =back
 
@@ -51,25 +62,20 @@ build directory.
 
 =item B<-n>, B<--noscripts>
 
-Do not modify postinst/postrm/prerm scripts.
+Do not modify F<postinst>/F<postrm>/F<prerm> scripts.
 
 =item B<-o>, B<--onlyscripts>
 
-Only modify postinst/postrm/prerm scripts, do not actually install any init
-script, default files, or upstart job.  May be useful if the init script or
-upstart job is shipped and/or installed by upstream in a way that doesn't
-make it easy to let dh_installinit find it.
-
-If no upstart job file is installed in the target directory when
-dh_installinit --onlyscripts is called, this program will assume that an
-init script is being installed and not provide the compatibility symlinks
-or upstart dependencies.
+Only modify F<postinst>/F<postrm>/F<prerm> scripts, do not actually install
+any init script, default files, upstart job or systemd service file. May be
+useful if the file is shipped and/or installed by upstream in a way that
+doesn't make it easy to let B<dh_installinit> find it.
 
 =item B<-R>, B<--restart-after-upgrade>
 
 Do not stop the init script until after the package upgrade has been
 completed. This is different than the default behavior, which stops the
-script in the prerm, and starts it again in the postinst.
+script in the F<prerm>, and starts it again in the F<postinst>.
 
 This can be useful for daemons that should not have a possibly long
 downtime during upgrade. But you should make sure that the daemon will not
@@ -83,58 +89,55 @@ Do not stop init script on upgrade.
 =item B<--no-start>
 
 Do not start the init script on install or upgrade, or stop it on removal.
-Only call update-rc.d. Useful for rcS scripts.
+Only call B<update-rc.d>. Useful for rcS scripts.
 
 =item B<-d>, B<--remove-d>
 
-Remove trailing "d" from the name of the package, and use the result for the
-filename the upstart job file is installed as in etc/init/ , or for the
+Remove trailing B<d> from the name of the package, and use the result for the
+filename the upstart job file is installed as in F<etc/init/> , and for the
 filename the init script is installed as in etc/init.d and the default file
-is installed as in etc/default/ . This may be useful for daemons with names
-ending in "d". (Note: this takes precedence over the --init-script parameter
+is installed as in F<etc/default/> . This may be useful for daemons with names
+ending in B<d>. (Note: this takes precedence over the B<--init-script> parameter
 described below.)
 
 =item B<-u>I<params> B<--update-rcd-params=>I<params>
 
 =item B<--> I<params>
 
-Pass "params" to L<update-rc.d(8)>. If not specified, "defaults" will be
+Pass I<params> to L<update-rc.d(8)>. If not specified, B<defaults> will be
 passed to L<update-rc.d(8)>.
 
 =item B<--name=>I<name>
 
-Install the upstart job file or the init script (and default file) using the
-filename I<name> instead of the default filename, which is the package name.
-When this parameter is used, dh_installinit looks for and installs files
-named debian/package.name.upstart, debian/package.name.init and
-debian/package.name.default, instead of the usual debian/package.upstart,
-debian/package.init and debian/package.default.
+Install the init script (and default file) as well as upstart job file
+using the filename I<name> instead of the default filename, which is
+the package name. When this parameter is used, B<dh_installinit> looks
+for and installs files named F<debian/package.name.init>,
+F<debian/package.name.default> and F<debian/package.name.upstart>
+instead of the usual F<debian/package.init>, F<debian/package.default> and
+F<debian/package.upstart>.
 
 =item B<--init-script=>I<scriptname>
 
-Use "scriptname" as the filename the init script is installed as in
-etc/init.d/ (and also use it as the filename for the defaults file, if it
-is installed). If you use this parameter, dh_installinit will look to see
-if a file in the debian/ directory exists that looks like
-"package.scriptname" and if so will install it as the init script in
+Use I<scriptname> as the filename the init script is installed as in
+F<etc/init.d/> (and also use it as the filename for the defaults file, if it
+is installed). If you use this parameter, B<dh_installinit> will look to see
+if a file in the F<debian/> directory exists that looks like
+F<package.scriptname> and if so will install it as the init script in
 preference to the files it normally installs.
 
-This parameter is deprecated, use the --name parameter instead.  This
-parameter will be ignored completely for upstart jobs.
+This parameter is deprecated, use the B<--name> parameter instead. This
+parameter is incompatible with the use of upstart jobs.
 
 =item B<--upstart-only>
 
-Only install an upstart job file, and do not include maintainer script
-code to replace an init script with that upstart job.
-
-This parameter is intended for use when the "package.upstart" file is
-new and only to be used on Upstart-based systems.
+Deprecated option, ignored for compatibility.
 
 =item B<--error-handler=>I<function>
 
-Call the named shell function if running the init script fails. The
-function should be provided in the prerm and postinst scripts, before the
-#DEBHELPER# token.
+Call the named shell I<function> if running the init script fails. The
+function should be provided in the F<prerm> and F<postinst> scripts, before the
+B<#DEBHELPER#> token.
 
 =back
 
@@ -154,16 +157,17 @@ init(options => {
 	"init-script=s" => \$dh{INIT_SCRIPT},
 	"update-rcd-params=s", => \$dh{U_PARAMS},
 	"remove-d" => \$dh{D_FLAG},
-	"O" => \$dh{ONLYSCRIPTS},
-	"onlyscripts-upstart" => \$dh{ONLYSCRIPTS},
 	"upstart-only" => \$dh{UPSTART_ONLY},
 });
+
+# PROMISE: DH NOOP WITHOUT service tmpfile default upstart init init.d
 
 foreach my $package (@{$dh{DOPACKAGES}}) {
 	my $tmp=tmpdir($package);
 
 	# Figure out what filename to install it as.
 	my $script;
+	my $scriptsrc;
 	my $jobfile=$package;
 	if (defined $dh{NAME}) {
 		$jobfile=$script=$dh{NAME};
@@ -179,38 +183,49 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 		else {
 			warning("\"$package\" has no final d' in its name, but -d was specified.");
 		}
+		$scriptsrc=$script;
 	}       
 	elsif ($dh{INIT_SCRIPT}) {
 		$script=$dh{INIT_SCRIPT};
+		$scriptsrc=$script;
 	}
 	else {
 		$script=$package;
+		if (compat(9)) {
+			$scriptsrc=$script;
+		}
+		else {
+			$scriptsrc="init";
+		}
 	}       
-	
-	my $job=pkgfile($package,"upstart");
-	my $init='';
 
-	if ($job ne '' || ($dh{ONLYSCRIPTS} && -e "$tmp/etc/init/$jobfile.conf")) {
-		if (! $dh{ONLYSCRIPTS}) {
-			if (! -d "$tmp/etc/init") {
-				doit("install","-d","$tmp/etc/init");
-			}
-		
-			doit("install","-p","-m644",$job,"$tmp/etc/init/$jobfile.conf");
+	my $service=pkgfile($package,"service");
+	if ($service ne '' && ! $dh{ONLYSCRIPTS}) {
+		my $path="$tmp/lib/systemd/system";
+		if (! -d "$path") {
+			doit("install","-d","$path");
 		}
-		
-		# ensures that our /etc/init.d/ symlink points to a valid
-		# implementation
-		addsubstvar($package, "misc:Depends", "upstart-job");
 
-		if (! -d "$tmp/etc/init.d") {
-			doit("install","-d","$tmp/etc/init.d");
-		}
-		doit("ln","-sf","/lib/init/upstart-job","$tmp/etc/init.d/$jobfile");
+		doit("install","-p","-m644",$service,"$path/$script.service");
 	}
-	else {
-		$init=pkgfile($package,$script) || pkgfile($package,"init") ||
-			pkgfile($package,"init.d");
+
+	my $tmpfile=pkgfile($package,"tmpfile");
+	if ($tmpfile ne '' && ! $dh{ONLYSCRIPTS}) {
+		my $path="$tmp/usr/lib/tmpfiles.d";
+		if (! -d "$path") {
+			doit("install","-d","$path");
+		}
+
+		doit("install","-p","-m644",$tmpfile,"$path/$script.conf");
+	}
+
+	my $job=pkgfile($package,"upstart");
+	if ($job ne '' && ! $dh{ONLYSCRIPTS}) {
+		if (! -d "$tmp/etc/init") {
+			doit("install","-d","$tmp/etc/init");
+		}
+		
+		doit("install","-p","-m644",$job,"$tmp/etc/init/$jobfile.conf");
 	}
 
 	my $default=pkgfile($package,'default');
@@ -221,6 +236,15 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 		doit("install","-p","-m644",$default,"$tmp/etc/default/$script");
 	}
 
+	my $init=pkgfile($package,$scriptsrc) || pkgfile($package,"init") ||
+		pkgfile($package,"init.d");
+
+	if ($job ne '' || ($dh{ONLYSCRIPTS} && -e "$tmp/etc/init/$jobfile.conf")) {
+		# minimal version of invoke-rc.d that supports upstart jobs
+		# directly
+		addsubstvar($package, "misc:Depends", "sysv-rc (>= 2.88dsf-24) | file-rc (>= 0.8.16)");
+	}
+
 	if ($init ne '' && ! $dh{ONLYSCRIPTS}) {
 		if (! -d "$tmp/etc/init.d") {
 			doit("install","-d","$tmp/etc/init.d");
@@ -229,8 +253,15 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 		doit("install","-p","-m755",$init,"$tmp/etc/init.d/$script");
 	}
 
-	if ($init ne '' || ($dh{ONLYSCRIPTS} && ! -e "$tmp/etc/init/$jobfile.conf"))
-	{
+	if ($dh{INIT_SCRIPT} && $job ne '' && $init ne '') {
+		error("Can't use --init-script with an upstart job");
+	}
+
+	# NB: The case that only $tmpfile is set makes no sense. The
+	# tmpfiles.d(5) mechanism is only available when using systemd (at
+	# least currently), so there has to be an init script which does the
+	# same thing for sysvinit.
+	if ($service ne '' || $job ne '' || $init ne '' || $dh{ONLYSCRIPTS}) {
 		# This is set by the -u "foo" command line switch, it's
 		# the parameters to pass to update-rc.d. If not set,
 		# we have to say "defaults".
@@ -243,75 +274,67 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 		}
 		
 		if (! $dh{NOSCRIPTS}) {
+			# Include postinst-init-tmpfiles if the package ships any files
+			# in /usr/lib/tmpfiles.d or /etc/tmpfiles.d
+			my $tmpdir = tmpdir($package);
+			my @tmpfiles;
+			find({
+				wanted => sub {
+					my $name = $File::Find::name;
+					return unless -f $name;
+					$name =~ s/^$tmpdir//g;
+					if ($name =~ m,^/usr/lib/tmpfiles\.d/, ||
+						$name =~ m,^/etc/tmpfiles\.d/,) {
+						push @tmpfiles, $name;
+					}
+				},
+				no_chdir => 1,
+			}, $tmpdir);
+			if (@tmpfiles > 0) {
+				autoscript($package,"postinst", "postinst-init-tmpfiles",
+					"s,#TMPFILES#," . join(" ", @tmpfiles).",");
+			}
+
 			if (! $dh{NO_START}) {
 				if ($dh{RESTART_AFTER_UPGRADE}) {
 					# update-rc.d, and restart (or
 					# start if new install) script
 					autoscript($package,"postinst", "postinst-init-restart",
-						"s/#SCRIPT#/$script/;s/#INITPARMS#/$params/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
+						"s/#SCRIPT#/$script/g;s/#INITPARMS#/$params/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
 				}
 				else {
 					# update-rc.d, and start script
 					autoscript($package,"postinst", "postinst-init",
-						"s/#SCRIPT#/$script/;s/#INITPARMS#/$params/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
+						"s/#SCRIPT#/$script/g;s/#INITPARMS#/$params/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
 				}
 			
 				if ($dh{R_FLAG} || $dh{RESTART_AFTER_UPGRADE}) {
 					# stops script only on remove
 					autoscript($package,"prerm","prerm-init-norestart",
-						"s/#SCRIPT#/$script/;s/#INITPARMS#/$params/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
+						"s/#SCRIPT#/$script/g;s/#INITPARMS#/$params/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
 				}
 				else {
 					# always stops script
 					autoscript($package,"prerm","prerm-init",
-						"s/#SCRIPT#/$script/;s/#INITPARMS#/$params/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
+						"s/#SCRIPT#/$script/g;s/#INITPARMS#/$params/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
 				}
 			}
 			else {
 				# just update-rc.d
 				autoscript($package,"postinst", "postinst-init-nostart",
-					"s/#SCRIPT#/$script/;s/#INITPARMS#/$params/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
+					"s/#SCRIPT#/$script/g;s/#INITPARMS#/$params/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
 			}
 
-			# removes rc.d links
-			autoscript($package,"postrm","postrm-init",
-				"s/#SCRIPT#/$script/;s/#INITPARMS#/$params/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
-		}
-	}
-
-	if ($job ne '' || ($dh{ONLYSCRIPTS} && -e "$tmp/etc/init/$jobfile.conf"))
-	{
-		if (! $dh{NOSCRIPTS}) {
-			if (! $dh{NO_START}) {
-				if ($dh{RESTART_AFTER_UPGRADE}) {
-					# restart (or start if new install) job
-					autoscript($package,"postinst", "postinst-upstart-restart",
-						"s/#JOB#/$jobfile/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
-				}
-				else {
-					# start script
-					autoscript($package,"postinst", "postinst-upstart",
-						"s/#JOB#/$jobfile/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
-				}
-			
-				if ($dh{R_FLAG} || $dh{RESTART_AFTER_UPGRADE}) {
-					# stops script only on remove
-					autoscript($package,"prerm","prerm-upstart-norestart",
-						"s/#JOB#/$jobfile/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
-				}
-				else {
-					# always stops script
-					autoscript($package,"prerm","prerm-upstart",
-						"s/#JOB#/$jobfile/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
-				}
-			}
-
-			if (! $dh{UPSTART_ONLY}) {
+			if ($job ne '') {
 				$script=$jobfile;
-				autoscript($package,"preinst", "preinst-removeconffile",
+				autoscript($package,"preinst", "preinst-upstart-compatibility",
 					"s!#OLD#!/etc/init.d/$script!g;s!#PACKAGE#!$package!g");
 				autoscript($package,"postinst", "postinst-upstart-replace",
-					"s/#SCRIPT#/$script/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
+					"s/#SCRIPT#/$script/g;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
+			} else {
+				# removes rc.d links
+				autoscript($package,"postrm","postrm-init",
+					"s/#SCRIPT#/$script/g;s/#INITPARMS#/$params/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
 			}
 		}
 	}
@@ -328,6 +351,8 @@ This program is a part of debhelper.
 Joey Hess <joeyh@debian.org>
 
 Steve Langasek <steve.langasek@canonical.com>
+
+Michael Stapelberg <stapelberg@debian.org>
 
 Scott James Remnant <scott@canonical.com>
 

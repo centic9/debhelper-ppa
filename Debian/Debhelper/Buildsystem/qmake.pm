@@ -11,6 +11,8 @@ use warnings;
 use Debian::Debhelper::Dh_Lib qw(error);
 use base 'Debian::Debhelper::Buildsystem::makefile';
 
+our $qmake="qmake";
+
 sub DESCRIPTION {
 	"qmake (*.pro)";
 }
@@ -52,12 +54,12 @@ sub configure {
 	push @options, '-nocache';
 
 	if ($ENV{CFLAGS}) {
-		push @flags, "QMAKE_CFLAGS_RELEASE=$ENV{CFLAGS}";
-		push @flags, "QMAKE_CFLAGS_DEBUG=$ENV{CFLAGS}";
+		push @flags, "QMAKE_CFLAGS_RELEASE=$ENV{CFLAGS} $ENV{CPPFLAGS}";
+		push @flags, "QMAKE_CFLAGS_DEBUG=$ENV{CFLAGS} $ENV{CPPFLAGS}";
 	}
 	if ($ENV{CXXFLAGS}) {
-		push @flags, "QMAKE_CXXFLAGS_RELEASE=$ENV{CXXFLAGS}";
-		push @flags, "QMAKE_CXXFLAGS_DEBUG=$ENV{CXXFLAGS}";
+		push @flags, "QMAKE_CXXFLAGS_RELEASE=$ENV{CXXFLAGS} $ENV{CPPFLAGS}";
+		push @flags, "QMAKE_CXXFLAGS_DEBUG=$ENV{CXXFLAGS} $ENV{CPPFLAGS}";
 	}
 	if ($ENV{LDFLAGS}) {
 		push @flags, "QMAKE_LFLAGS_RELEASE=$ENV{LDFLAGS}";
@@ -66,7 +68,7 @@ sub configure {
 	push @flags, "QMAKE_STRIP=:";
 	push @flags, "PREFIX=/usr";
 
-	$this->doit_in_builddir('qmake', @options, @flags, @_);
+	$this->doit_in_builddir($qmake, @options, @flags, @_);
 }
 
 sub install {

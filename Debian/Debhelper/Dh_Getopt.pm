@@ -218,8 +218,9 @@ sub parseopts {
 
 	my $ret=getoptions(\@ARGV, %params);
 	if (!$ret) {
-		warning("warning: unknown options will be a fatal error in a future debhelper release");
-		#error("unknown option; aborting");
+		if (! compat(7)) {
+			error("unknown option; aborting");
+		}
 	}
 
 	# Check to see if -V was specified. If so, but no parameters were
@@ -235,10 +236,12 @@ sub parseopts {
 		if ($dh{DOINDEP} || $dh{DOARCH}) {
 			# User specified that all arch (in)dep package be
 			# built, and there are none of that type.
-			warning("You asked that all arch in(dep) packages be built, but there are none of that type.");
+			if (! $dh{BLOCK_NOOP_WARNINGS}) {
+				warning("You asked that all arch in(dep) packages be built, but there are none of that type.");
+			}
 			exit(0);
 		}
-		push @{$dh{DOPACKAGES}},getpackages();
+		push @{$dh{DOPACKAGES}},getpackages("both");
 	}
 
 	# Remove excluded packages from the list of packages to act on.
@@ -262,7 +265,9 @@ sub parseopts {
 	@{$dh{DOPACKAGES}}=@package_list;
 
 	if (! defined $dh{DOPACKAGES} || ! @{$dh{DOPACKAGES}}) {
-		warning("No packages to build.");
+		if (! $dh{BLOCK_NOOP_WARNINGS}) {
+			warning("No packages to build.");
+		}
 		exit(0);
 	}
 

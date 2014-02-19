@@ -15,11 +15,15 @@ use vars qw(@ISA @EXPORT %dh);
 	    &filedoublearray &getpackages &basename &dirname &xargs %dh
 	    &compat &addsubstvar &delsubstvar &excludefile &package_arch
 	    &is_udeb &udeb_filename &debhelper_script_subst &escape_shell
-	    &inhibit_log &load_log &write_log &dpkg_architecture_value
-	    &sourcepackage
-	    &is_make_jobserver_unavailable &clean_jobserver_makeflags);
+	    &inhibit_log &load_log &write_log &commit_override_log
+	    &dpkg_architecture_value &sourcepackage
+	    &is_make_jobserver_unavailable &clean_jobserver_makeflags
+	    &cross_command &set_buildflags &get_buildoption);
 
-my $max_compat=7;
+my $max_compat=10;
+
+# The Makefile changes this if debhelper is installed in a PREFIX.
+my $prefix="/usr";
 
 sub init {
 	my %params=@_;
@@ -65,18 +69,18 @@ sub init {
 		$dh{NO_ACT}=1;
 	}
 
-	my @allpackages=getpackages();
 	# Get the name of the main binary package (first one listed in
 	# debian/control). Only if the main package was not set on the
 	# command line.
 	if (! exists $dh{MAINPACKAGE} || ! defined $dh{MAINPACKAGE}) {
+		my @allpackages=getpackages();
 		$dh{MAINPACKAGE}=$allpackages[0];
 	}
 
 	# Check if packages to build have been specified, if not, fall back to
-	# the default, doing them all.
+	# the default, building all relevant packages.
 	if (! defined $dh{DOPACKAGES} || ! @{$dh{DOPACKAGES}}) {
-		push @{$dh{DOPACKAGES}},@allpackages;
+		push @{$dh{DOPACKAGES}}, getpackages('both');
 	}
 
 	# Check to see if -P was specified. If so, we can only act on a single
@@ -90,7 +94,7 @@ sub init {
 	# the command line may affect it.
 	$dh{FIRSTPACKAGE}=${$dh{DOPACKAGES}}[0];
 
-	# If no error handling function was specified, just propigate
+	# If no error handling function was specified, just propagate
 	# errors out.
 	if (! exists $dh{ERROR_HANDLER} || ! defined $dh{ERROR_HANDLER}) {
 		$dh{ERROR_HANDLER}='exit \$?';
@@ -106,16 +110,36 @@ sub END {
 	}
 }
 
+sub logfile {
+	my $package=shift;
+	my $ext=pkgext($package);
+	return "debian/${ext}debhelper.log"
+}
+
+sub add_override {
+	my $line=shift;
+	$line="override_$ENV{DH_INTERNAL_OVERRIDE} $line"
+		if defined $ENV{DH_INTERNAL_OVERRIDE};
+	return $line;
+}
+
+sub remove_override {
+	my $line=shift;
+	$line=~s/^\Qoverride_$ENV{DH_INTERNAL_OVERRIDE}\E\s+//
+		if defined $ENV{DH_INTERNAL_OVERRIDE};
+	return $line;
+}
+
 sub load_log {
 	my ($package, $db)=@_;
-	my $ext=pkgext($package);
 
 	my @log;
-	open(LOG, "<", "debian/${ext}debhelper.log") || return;
+	open(LOG, "<", logfile($package)) || return;
 	while (<LOG>) {
 		chomp;
-		push @log, $_;
-		$db->{$package}{$_}=1 if defined $db;
+		my $command=remove_override($_);
+		push @log, $command;
+		$db->{$package}{$command}=1 if defined $db;
 	}
 	close LOG;
 	return @log;
@@ -125,11 +149,26 @@ sub write_log {
 	my $cmd=shift;
 	my @packages=@_;
 
+	return if $dh{NO_ACT};
+
 	foreach my $package (@packages) {
-		my $ext=pkgext($package);
-		my $log="debian/${ext}debhelper.log";
+		my $log=logfile($package);
 		open(LOG, ">>", $log) || error("failed to write to ${log}: $!");
-		print LOG $cmd."\n";
+		print LOG add_override($cmd)."\n";
+		close LOG;
+	}
+}
+
+sub commit_override_log {
+	my @packages=@_;
+
+	return if $dh{NO_ACT};
+
+	foreach my $package (@packages) {
+		my @log=map { remove_override($_) } load_log($package);
+		my $log=logfile($package);
+		open(LOG, ">", $log) || error("failed to write to ${log}: $!");
+		print LOG $_."\n" foreach @log;
 		close LOG;
 	}
 }
@@ -215,6 +254,7 @@ sub xargs {
 
         # The kernel can accept command lines up to 20k worth of characters.
 	my $command_max=20000; # LINUX SPECIFIC!!
+			# (And obsolete; it's bigger now.)
 			# I could use POSIX::ARG_MAX, but that would be slow.
 
 	# Figure out length of static portion of command.
@@ -291,29 +331,35 @@ sub dirname {
 
 	sub compat {
 		my $num=shift;
+		my $nowarn=shift;
 	
 		if (! defined $c) {
 			$c=1;
-			if (defined $ENV{DH_COMPAT}) {
-				$c=$ENV{DH_COMPAT};
-			}
-			elsif (-e 'debian/compat') {
-				# Try the file..
+			if (-e 'debian/compat') {
 				open (COMPAT_IN, "debian/compat") || error "debian/compat: $!";
 				my $l=<COMPAT_IN>;
 				close COMPAT_IN;
 				if (! defined $l || ! length $l) {
-					warning("debian/compat is empty, assuming level $c");
+					warning("debian/compat is empty, assuming level $c")
+						unless defined $ENV{DH_COMPAT};
 				}
 				else {
 					chomp $l;
 					$c=$l;
 				}
 			}
+			else {
+				warning("No compatibility level specified in debian/compat");
+				warning("This package will soon FTBFS; time to fix it!");
+			}
+
+			if (defined $ENV{DH_COMPAT}) {
+				$c=$ENV{DH_COMPAT};
+			}
 		}
 
-		if ($c <= 4 && ! $warned_compat) {
-			warning("Compatibility levels before 5 are deprecated.");
+		if ($c <= 4 && ! $warned_compat && ! $nowarn) {
+			warning("Compatibility levels before 5 are deprecated (level $c in use)");
 			$warned_compat=1;
 		}
 	
@@ -364,9 +410,23 @@ sub pkgfile {
 		$filename="$dh{NAME}.$filename";
 	}
 	
-	my @try=("debian/$package.$filename.".buildarch(),
-		 "debian/$package.$filename.".buildos(),
-		 "debian/$package.$filename");
+	# First, check for files ending in buildarch and buildos.
+	my $match;
+	foreach my $file (glob("debian/$package.$filename.*")) {
+		next if ! -f $file;
+		next if $dh{IGNORE} && exists $dh{IGNORE}->{$file};
+		if ($file eq "debian/$package.$filename.".buildarch()) {
+			$match=$file;
+			# buildarch files are used in preference to buildos files.
+			last;
+		}
+		elsif ($file eq "debian/$package.$filename.".buildos()) {
+			$match=$file;
+		}
+	}
+	return $match if defined $match;
+
+	my @try=("debian/$package.$filename");
 	if ($package eq $dh{MAINPACKAGE}) {
 		push @try, "debian/$filename";
 	}
@@ -447,7 +507,8 @@ sub pkgfilename {
 # 1: package
 # 2: script to add to
 # 3: filename of snippet
-# 4: sed to run on the snippet. Ie, s/#PACKAGE#/$PACKAGE/
+# 4: either text: shell-quoted sed to run on the snippet. Ie, 's/#PACKAGE#/$PACKAGE/'
+#    or a sub to run on each line of the snippet. Ie sub { s/#PACKAGE#/$PACKAGE/ }
 sub autoscript {
 	my $package=shift;
 	my $script=shift;
@@ -464,11 +525,11 @@ sub autoscript {
 		$infile="$ENV{DH_AUTOSCRIPTDIR}/$filename";
 	}
 	else {
-		if (-e "/usr/share/debhelper/autoscripts/$filename") {
-			$infile="/usr/share/debhelper/autoscripts/$filename";
+		if (-e "$prefix/share/debhelper/autoscripts/$filename") {
+			$infile="$prefix/share/debhelper/autoscripts/$filename";
 		}
 		else {
-			error("/usr/share/debhelper/autoscripts/$filename does not exist");
+			error("$prefix/share/debhelper/autoscripts/$filename does not exist");
 		}
 	}
 
@@ -476,15 +537,31 @@ sub autoscript {
 	   && !compat(5)) {
 		# Add fragments to top so they run in reverse order when removing.
 		complex_doit("echo \"# Automatically added by ".basename($0)."\"> $outfile.new");
-		complex_doit("sed \"$sed\" $infile >> $outfile.new");
+		autoscript_sed($sed, $infile, "$outfile.new");
 		complex_doit("echo '# End automatically added section' >> $outfile.new");
 		complex_doit("cat $outfile >> $outfile.new");
 		complex_doit("mv $outfile.new $outfile");
 	}
 	else {
 		complex_doit("echo \"# Automatically added by ".basename($0)."\">> $outfile");
-		complex_doit("sed \"$sed\" $infile >> $outfile");
+		autoscript_sed($sed, $infile, $outfile);
 		complex_doit("echo '# End automatically added section' >> $outfile");
+	}
+}
+
+sub autoscript_sed {
+	my $sed = shift;
+	my $infile = shift;
+	my $outfile = shift;
+	if (ref($sed) eq 'CODE') {
+		open(IN, $infile) or die "$infile: $!";
+		open(OUT, ">>$outfile") or die "$outfile: $!";
+		while (<IN>) { $sed->(); print OUT }
+		close(OUT) or die "$outfile: $!";
+		close(IN) or die "$infile: $!";
+	}
+	else {
+		complex_doit("sed \"$sed\" $infile >> $outfile");
 	}
 }
 
@@ -561,12 +638,22 @@ sub filedoublearray {
 	my $file=shift;
 	my $globdir=shift;
 
+	# executable config files are a v9 thing.
+	my $x=! compat(8) && -x $file;
+	if ($x) {
+		require Cwd;
+		my $cmd=Cwd::abs_path($file);
+		open (DH_FARRAY_IN, "$cmd |") || error("cannot run $file: $!");
+	}
+	else {
+		open (DH_FARRAY_IN, $file) || error("cannot read $file: $!");
+	}
+
 	my @ret;
-	open (DH_FARRAY_IN, $file) || error("cannot read $file: $1");
 	while (<DH_FARRAY_IN>) {
 		chomp;
 		# Only ignore comments and empty lines in v5 mode.
-		if (! compat(4)) {
+		if (! compat(4) && ! $x)  {
 			next if /^#/ || /^$/;
 		}
 		my @line;
@@ -575,7 +662,7 @@ sub filedoublearray {
 		# The tricky bit is that the glob expansion is done
 		# as if we were in the specified directory, so the
 		# filenames that come out are relative to it.
-		if (defined $globdir && ! compat(2)) {
+		if (defined $globdir && ! compat(2) && ! $x) {
 			foreach (map { glob "$globdir/$_" } split) {
 				s#^$globdir/##;
 				push @line, $_;
@@ -586,7 +673,8 @@ sub filedoublearray {
 		}
 		push @ret, [@line];
 	}
-	close DH_FARRAY_IN;
+
+	close DH_FARRAY_IN || error("problem reading $file: $!");
 	
 	return @ret;
 }
@@ -606,47 +694,64 @@ sub excludefile {
         return 0;
 }
 
-sub dpkg_architecture_value {
-	my $var = shift;
-	my $value=`dpkg-architecture -q$var` || error("dpkg-architecture failed");
-	chomp $value;
-	return $value;
-}
-
-# Returns the build architecture. (Memoized)
 {
-	my $arch;
-	
-	sub buildarch {
-		if (!defined $arch) {
-		    $arch=dpkg_architecture_value('DEB_HOST_ARCH');
+	my %dpkg_arch_output;
+	sub dpkg_architecture_value {
+		my $var = shift;
+		if (! exists($dpkg_arch_output{$var})) {
+			local $_;
+			open(PIPE, '-|', 'dpkg-architecture')
+				or error("dpkg-architecture failed");
+			while (<PIPE>) {
+				chomp;
+				my ($k, $v) = split(/=/, $_, 2);
+				$dpkg_arch_output{$k} = $v;
+			}
+			close(PIPE);
 		}
-		return $arch;
+		return $dpkg_arch_output{$var};
 	}
 }
 
-# Returns the build OS. (Memoized)
-{
-	my $os;
+# Returns the build architecture.
+sub buildarch {
+	dpkg_architecture_value('DEB_HOST_ARCH');
+}
 
-	sub buildos {
-		if (!defined $os) {
-			$os=dpkg_architecture_value("DEB_HOST_ARCH_OS");
-		}
-		return $os;
-	}
+# Returns the build OS.
+sub buildos {
+	dpkg_architecture_value("DEB_HOST_ARCH_OS");
 }
 
 # Passed an arch and a list of arches to match against, returns true if matched
-sub samearch {
-	my $arch=shift;
-	my @archlist=split(/\s+/,shift);
+{
+	my %knownsame;
 
-	foreach my $a (@archlist) {
-		system("dpkg-architecture", "-a$arch", "-i$a") == 0 && return 1;
+	sub samearch {
+		my $arch=shift;
+		my @archlist=split(/\s+/,shift);
+	
+		foreach my $a (@archlist) {
+			# Avoid expensive dpkg-architecture call to compare
+			# with a simple architecture name. "linux-any" and
+			# other architecture wildcards are (currently)
+			# always hypenated.
+			if ($a !~ /-/) {
+				return 1 if $arch eq $a;
+			}
+			elsif (exists $knownsame{$arch}{$a}) {
+				return 1 if $knownsame{$arch}{$a};
+			}
+			elsif (system("dpkg-architecture", "-a$arch", "-i$a") == 0) {
+				return $knownsame{$arch}{$a}=1;
+			}
+			else {
+				$knownsame{$arch}{$a}=0;
+			}
+		}
+	
+		return 0;
 	}
-
-	return 0;
 }
 
 # Returns source package name
@@ -667,8 +772,10 @@ sub sourcepackage {
 }
 
 # Returns a list of packages in the control file.
-# Pass "arch" or "indep" to specify arch-dependant or
-# independant. If nothing is specified, returns all packages.
+# Pass "arch" or "indep" to specify arch-dependant (that will be built
+# for the system's arch) or independant. If nothing is specified,
+# returns all packages. Also, "both" returns the union of "arch" and "indep"
+# packages.
 # As a side effect, populates %package_arches and %package_types with the
 # types of all packages (not only those returned).
 my (%package_types, %package_arches);
@@ -715,8 +822,8 @@ sub getpackages {
 			}
 
 			if ($package &&
-			    (($type eq 'indep' && $arch eq 'all') ||
-			     ($type eq 'arch' && ($arch eq 'any' ||
+			    ((($type eq 'indep' || $type eq 'both') && $arch eq 'all') ||
+			     (($type eq 'arch'  || $type eq 'both') && ($arch eq 'any' ||
 					     ($arch ne 'all' &&
 			                      samearch(buildarch(), $arch)))) ||
 			     ! $type)) {
@@ -819,6 +926,57 @@ sub clean_jobserver_makeflags {
 			$ENV{MAKEFLAGS} =~ s/(?:^|\s)-j\b//g;
 		}
 		delete $ENV{MAKEFLAGS} if $ENV{MAKEFLAGS} =~ /^\s*$/;
+	}
+}
+
+# If cross-compiling, returns appropriate cross version of command.
+sub cross_command {
+	my $command=shift;
+	if (dpkg_architecture_value("DEB_BUILD_GNU_TYPE")
+	    ne dpkg_architecture_value("DEB_HOST_GNU_TYPE")) {
+		return dpkg_architecture_value("DEB_HOST_GNU_TYPE")."-$command";
+	}
+	else {
+		return $command;
+	}
+}
+
+# Sets environment variables from dpkg-buildflags. Avoids changing
+# any existing environment variables.
+sub set_buildflags {
+	return if $ENV{DH_INTERNAL_BUILDFLAGS} || compat(8);
+	$ENV{DH_INTERNAL_BUILDFLAGS}=1;
+
+	eval "use Dpkg::BuildFlags";
+	if ($@) {
+		warning "unable to load build flags: $@";
+		return;
+	}
+
+	my $buildflags = Dpkg::BuildFlags->new();
+	$buildflags->load_config();
+	foreach my $flag ($buildflags->list()) {
+		next unless $flag =~ /^[A-Z]/; # Skip flags starting with lowercase
+		if (! exists $ENV{$flag}) {
+			$ENV{$flag} = $buildflags->get($flag);
+		}
+	}
+}
+
+# Gets a DEB_BUILD_OPTIONS option, if set.
+sub get_buildoption {
+	my $wanted=shift;
+
+	return undef unless exists $ENV{DEB_BUILD_OPTIONS};
+
+	foreach my $opt (split(/\s+/, $ENV{DEB_BUILD_OPTIONS})) {
+		# currently parallel= is the only one with a parameter
+		if ($opt =~ /^parallel=(-?\d+)$/ && $wanted eq 'parallel') {
+			return $1;
+		}
+		elsif ($opt eq $wanted) {
+			return 1;
+		}
 	}
 }
 

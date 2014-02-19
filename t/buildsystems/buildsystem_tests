@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-use Test::More tests => 300;
+use Test::More tests => 297;
 
 use strict;
 use warnings;
@@ -256,7 +256,7 @@ touch "$tmpdir/configure", 0755;
 test_check_auto_buildable($bs{autoconf}, "configure", { configure => 1 });
 
 touch "$tmpdir/CMakeLists.txt";
-test_check_auto_buildable($bs{cmake}, "CMakeLists.txt", { configure => 1 });
+test_check_auto_buildable($bs{cmake}, "CMakeLists.txt", { configure => 1, clean => 1 });
 
 touch "$tmpdir/Makefile.PL";
 test_check_auto_buildable($bs{perl_makemaker}, "Makefile.PL", { configure => 1 });
@@ -499,45 +499,37 @@ ok ( ! -e 'bld', "bld got deleted too" );
 #### Test parallel building and related options / routines
 @tmp = ( $ENV{MAKEFLAGS}, $ENV{DEB_BUILD_OPTIONS} );
 
-# Test is_make_jobserver_unavailable and clean_jobserver_makeflags.
+# Test clean_jobserver_makeflags.
 
 $ENV{MAKEFLAGS} = "--jobserver-fds=103,104 -j";
-ok(is_make_jobserver_unavailable(), "unavailable jobserver" );
 clean_jobserver_makeflags();
 ok(! exists $ENV{MAKEFLAGS}, "unset makeflags");
 
 $ENV{MAKEFLAGS} = "-a --jobserver-fds=103,104 -j -b";
-ok(is_make_jobserver_unavailable(), "unavailable jobserver" );
 clean_jobserver_makeflags();
 is($ENV{MAKEFLAGS}, "-a -b", "clean makeflags");
 
 $ENV{MAKEFLAGS} = " --jobserver-fds=1,2 -j  ";
-ok(! is_make_jobserver_unavailable(), "available jobserver" );
 clean_jobserver_makeflags();
 ok(! exists $ENV{MAKEFLAGS}, "unset makeflags");
 
 $ENV{MAKEFLAGS} = "-a -j -b";
-ok(! is_make_jobserver_unavailable(), "no specified jobserver");
 clean_jobserver_makeflags();
 is($ENV{MAKEFLAGS}, "-a -j -b", "clean makeflags does not remove -j");
 
 $ENV{MAKEFLAGS} = "-a --jobs -b";
-ok(! is_make_jobserver_unavailable(), "no specified jobserver");
 clean_jobserver_makeflags();
 is($ENV{MAKEFLAGS}, "-a --jobs -b", "clean makeflags does not remove --jobs");
 
 $ENV{MAKEFLAGS} = "-j6";
-ok(! is_make_jobserver_unavailable(), "no specified jobserver");
 clean_jobserver_makeflags();
 is($ENV{MAKEFLAGS}, "-j6", "clean makeflags does not remove -j6");
 
 $ENV{MAKEFLAGS} = "-a -j6 --jobs=7";
-ok(! is_make_jobserver_unavailable(), "no specified jobserver");
 clean_jobserver_makeflags();
 is($ENV{MAKEFLAGS}, "-a -j6 --jobs=7", "clean makeflags does not remove -j or --jobs");
 
-$ENV{MAKEFLAGS} = "-j6 --jobserver-fds=5,6 --jobs=8";
-ok(is_make_jobserver_unavailable(), "unavailable jobserver");
+$ENV{MAKEFLAGS} = "-j6 --jobserver-fds=103,104 --jobs=8";
 clean_jobserver_makeflags();
 is($ENV{MAKEFLAGS}, "-j6 --jobs=8", "jobserver options removed");
 
@@ -622,7 +614,7 @@ override_dh_auto_build:
 	$(MAKE)
 %:
 	@dh_clean > /dev/null 2>&1
-	@+dh --buildsystem=makefile --after=dh_auto_configure --until=dh_auto_build $@
+	@+dh --buildsystem=makefile --after=dh_auto_configure --until=dh_auto_build $@ 2>/dev/null
 	@dh_clean > /dev/null 2>&1
 EOF
 test_is_parallel( do_rules_for_parallel("build", "include debian/rules"),

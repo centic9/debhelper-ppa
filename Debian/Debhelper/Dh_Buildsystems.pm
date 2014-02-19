@@ -20,13 +20,15 @@ use constant BUILD_STEPS => qw(configure build test install clean);
 # build systems MUST be added to the END of the list.
 our @BUILDSYSTEMS = (
 	"autoconf",
+	(! compat(7) ? "perl_build" : ()),
 	"perl_makemaker",
 	"makefile",
 	"python_distutils",
-	"perl_build",
+	(compat(7) ? "perl_build" : ()),
 	"cmake",
 	"ant",
 	"qmake",
+	"qmake_qt4",
 );
 
 my $opt_buildsys;
@@ -158,25 +160,19 @@ sub buildsystems_init {
 	);
 	$args{options}{$_} = $options{$_} foreach keys(%options);
 	Debian::Debhelper::Dh_Lib::init(%args);
+	Debian::Debhelper::Dh_Lib::set_buildflags();
 	set_parallel($max_parallel);
 }
 
 sub set_parallel {
 	my $max=shift;
 
-	$opt_parallel=1;
+	# Get number of processes from parallel=n option, limiting it
+	# with $max if needed
+	$opt_parallel=get_buildoption("parallel") || 1;
 
-	if (exists $ENV{DEB_BUILD_OPTIONS}) {
-		# Get number of processes from parallel=n tag limiting it
-		# with $max if needed
-		foreach my $opt (split(/\s+/, $ENV{DEB_BUILD_OPTIONS})) {
-			if ($opt =~ /^parallel=(-?\d+)$/) {
-				$opt_parallel = $1;
-				if ($max > 0 && $opt_parallel > $max) {
-					$opt_parallel = $max;
-				}
-			}
-		}
+	if ($max > 0 && $opt_parallel > $max) {
+		$opt_parallel = $max;
 	}
 }
 

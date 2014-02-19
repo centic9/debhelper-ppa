@@ -1,13 +1,11 @@
-if [ -x "/etc/init.d/#SCRIPT#" ]; then
-	update-rc.d #SCRIPT# #INITPARMS# >/dev/null
+if [ -x "/etc/init.d/#SCRIPT#" ] || [ -e "/etc/init/#SCRIPT#.conf" ]; then
+	if [ ! -e "/etc/init/#SCRIPT#.conf" ]; then
+		update-rc.d #SCRIPT# #INITPARMS# >/dev/null
+	fi
 	if [ -n "$2" ]; then
 		_dh_action=restart
 	else
 		_dh_action=start
 	fi
-	if [ -x "`which invoke-rc.d 2>/dev/null`" ]; then
-		invoke-rc.d #SCRIPT# $_dh_action || #ERROR_HANDLER#
-	else
-		/etc/init.d/#SCRIPT# $_dh_action || #ERROR_HANDLER#
-	fi
+	invoke-rc.d #SCRIPT# $_dh_action || #ERROR_HANDLER#
 fi

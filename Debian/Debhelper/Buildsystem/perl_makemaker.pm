@@ -7,7 +7,9 @@
 package Debian::Debhelper::Buildsystem::perl_makemaker;
 
 use strict;
+use Debian::Debhelper::Dh_Lib qw(compat);
 use base 'Debian::Debhelper::Buildsystem::makefile';
+use Config;
 
 sub DESCRIPTION {
 	"Perl ExtUtils::MakeMaker (Makefile.PL)"
@@ -38,15 +40,25 @@ sub new {
 
 sub configure {
 	my $this=shift;
+	my @flags;
 	# If set to a true value then MakeMaker's prompt function will
 	# # always return the default without waiting for user input.
 	$ENV{PERL_MM_USE_DEFAULT}=1;
 	# This prevents  Module::Install from interactive behavior.
 	$ENV{PERL_AUTOINSTALL}="--skipdeps";
 
+	if ($ENV{CFLAGS} && ! compat(8)) {
+		push @flags, "OPTIMIZE=$ENV{CFLAGS} $ENV{CPPFLAGS}";
+	}
+	if ($ENV{LDFLAGS} && ! compat(8)) {
+		push @flags, "LD=$Config{ld} $ENV{CFLAGS} $ENV{LDFLAGS}";
+	}
+
 	$this->doit_in_sourcedir("perl", "Makefile.PL", "INSTALLDIRS=vendor",
-	    "create_packlist=0",
-	    @_);
+		# if perl_build is not tested first, need to pass packlist
+		# option to handle fallthrough case
+		(compat(7) ? "create_packlist=0" : ()),
+		@flags, @_);
 }
 
 sub install {

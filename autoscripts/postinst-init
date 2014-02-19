@@ -1,8 +1,6 @@
-if [ -x "/etc/init.d/#SCRIPT#" ]; then
-	update-rc.d #SCRIPT# #INITPARMS# >/dev/null
-	if [ -x "`which invoke-rc.d 2>/dev/null`" ]; then
-		invoke-rc.d #SCRIPT# start || #ERROR_HANDLER#
-	else
-		/etc/init.d/#SCRIPT# start || #ERROR_HANDLER#
+if [ -x "/etc/init.d/#SCRIPT#" ] || [ -e "/etc/init/#SCRIPT#.conf" ]; then
+	if [ ! -e "/etc/init/#SCRIPT#.conf" ]; then
+		update-rc.d #SCRIPT# #INITPARMS# >/dev/null
 	fi
+	invoke-rc.d #SCRIPT# start || #ERROR_HANDLER#
 fi

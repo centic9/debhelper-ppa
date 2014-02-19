@@ -24,7 +24,7 @@ sub DEFAULT_BUILD_DIRECTORY {
 sub new {
 	my $class=shift;
 	my $this=$class->SUPER::new(@_);
-	# Out of source tree building is prefered.
+	# Out of source tree building is preferred.
 	$this->prefer_out_of_source_building(@_);
 	return $this;
 }
@@ -118,9 +118,23 @@ sub setup_py {
 	# extensions for each.
 
 	my $python_default = `pyversions -d`;
+	if ($? == -1) {
+		error("failed to run pyversions")
+	}
+	my $ecode = $? >> 8;
+	if ($ecode != 0) {
+		error("pyversions -d failed [$ecode]")
+	}
 	$python_default =~ s/^\s+//;
 	$python_default =~ s/\s+$//;
-	my @python_requested = split ' ', `pyversions -r 2>/dev/null`;
+	my @python_requested = split ' ', `pyversions -r`;
+	if ($? == -1) {
+		error("failed to run pyversions")
+	}
+	$ecode = $? >> 8;
+	if ($ecode != 0) {
+		error("pyversions -r failed [$ecode]")
+	}
 	if (grep /^\Q$python_default\E/, @python_requested) {
 		@python_requested = (
 			grep(!/^\Q$python_default\E/, @python_requested),
@@ -163,7 +177,9 @@ sub setup_py {
 
 sub build {
 	my $this=shift;
-	$this->setup_py("build", @_);
+	$this->setup_py("build",
+		"--force",
+		@_);
 }
 
 sub install {
@@ -188,7 +204,7 @@ sub clean {
 	}
 	# The setup.py might import files, leading to python creating pyc
 	# files.
-	$this->doit_in_sourcedir('find', '.', '-name', '*.pyc', '-exec', 'rm', '{}', ';');
+	$this->doit_in_sourcedir('find', '.', '-name', '*.pyc', '-exec', 'rm', '{}', '+');
 }
 
 1

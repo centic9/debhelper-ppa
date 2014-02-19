@@ -11,12 +11,12 @@ use Debian::Debhelper::Dh_Lib;
 
 =head1 SYNOPSIS
 
-B<dh_installdocs> [S<I<debhelper options>>] [B<-A>] [B<-X>I<item>] [S<I<file ...>>]
+B<dh_installdocs> [S<I<debhelper options>>] [B<-A>] [B<-X>I<item>] [S<I<file> ...>]
 
 =head1 DESCRIPTION
 
-dh_installdocs is a debhelper program that is responsible for installing
-documentation into usr/share/doc/package in package build directories.
+B<dh_installdocs> is a debhelper program that is responsible for installing
+documentation into F<usr/share/doc/package> in package build directories.
 
 =head1 FILES
 
@@ -24,13 +24,12 @@ documentation into usr/share/doc/package in package build directories.
 
 =item debian/I<package>.docs
 
-List documentaton files to be installed into I<package>.
+List documentation files to be installed into I<package>.
 
-=item debian/copyright
+=item F<debian/copyright>
 
-=item debian/README.Debian
-
-=item debian/TODO
+The copyright file is installed into all packages, unless a more
+specific copyright file is available.
 
 =item debian/I<package>.copyright
 
@@ -38,22 +37,34 @@ List documentaton files to be installed into I<package>.
 
 =item debian/I<package>.TODO
 
-Each of these files is automatically installed if present. Use the package
-specific name if I<package> needs a different version of the file.
+Each of these files is automatically installed if present for a
+I<package>.
 
-Note that debian/README.debian is also installed as README.Debian,
-and debian/TODO will be installed as TODO.Debian in non-native packages.
+=item F<debian/README.Debian>
+
+=item F<debian/TODO>
+
+These files are installed into the first binary package listed in
+debian/control.
+
+Note that F<README.debian> files are also installed as F<README.Debian>,
+and F<TODO> files will be installed as F<TODO.Debian> in non-native packages.
 
 =item debian/I<package>.doc-base
 
 Installed as doc-base control files. Note that the doc-id will be
-determined from the "Document:" entry in the doc-base control file in
-question.
+determined from the B<Document:> entry in the doc-base control file in
+question. In the event that multiple doc-base files in a single source
+package share the same doc-id, they will be installed to
+usr/share/doc-base/package instead of usr/share/doc-base/doc-id.
 
 =item debian/I<package>.doc-base.*
 
-If your package needs to register more than one document, you need multiple
-doc-base files, and can name them like this.
+If your package needs to register more than one document, you need
+multiple doc-base files, and can name them like this. In the event
+that multiple doc-base files of this style in a single source package
+share the same doc-id, they will be installed to
+usr/share/doc-base/package-* instead of usr/share/doc-base/doc-id.
 
 =back
 
@@ -66,9 +77,9 @@ doc-base files, and can name them like this.
 Install all files specified by command line parameters in ALL packages
 acted on.
 
-=item B<-Xitem>, B<--exclude=item>
+=item B<-X>I<item>, B<--exclude=>I<item>
 
-Exclude files that contain "item" anywhere in their filename from
+Exclude files that contain I<item> anywhere in their filename from
 being installed. Note that this includes doc-base files.
 
 =item B<--link-doc=>I<package>
@@ -82,14 +93,14 @@ be a binary package that comes from the same source package.
 debhelper will try to avoid installing files into linked documentation
 directories that would cause conflicts with the linked package. The B<-A>
 option will have no effect on packages with linked documentation
-directories, and copyright, changelog, README.Debian, and TODO files will
+directories, and F<copyright>, F<changelog>, F<README.Debian>, and F<TODO> files will
 not be installed.
 
 (An older method to accomplish the same thing, which is still supported,
 is to make the documentation directory of a package be a dangling symlink,
-before calling dh_installdocs.)
+before calling B<dh_installdocs>.)
 
-=item I<file ...>
+=item I<file> ...
 
 Install these files as documentation into the first package acted on. (Or
 in all packages if B<-A> is specified).
@@ -98,7 +109,7 @@ in all packages if B<-A> is specified).
 
 =head1 EXAMPLES
 
-This is an example of a debian/package.docs file:
+This is an example of a F<debian/package.docs> file:
 
   README
   TODO
@@ -109,8 +120,8 @@ This is an example of a debian/package.docs file:
 
 =head1 NOTES
 
-Note that dh_installdocs will happily copy entire directory hierarchies if
-you ask it to (similar to cp -a). If it is asked to install a
+Note that B<dh_installdocs> will happily copy entire directory hierarchies if
+you ask it to (similar to B<cp -a>). If it is asked to install a
 directory, it will install the complete contents of the directory.
 
 Note that this command is not idempotent. L<dh_prep(1)> should be called
@@ -202,7 +213,8 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 				my $dir = ($basename eq '.') ? $doc : "$doc/..";
 				my $pwd=`pwd`;
 				chomp $pwd;
-				complex_doit("cd '$dir' && find '$basename' \\( -type f -or -type l \\)$exclude -exec cp --parents -dp {} $pwd/$tmp/usr/share/doc/$package \\;");
+				my $docdir = "$pwd/$tmp/usr/share/doc/$package";
+				complex_doit("cd '$dir' && find '$basename' \\( -type f -or -type l \\)$exclude -print0 | xargs -0 -I {} cp --parents -dp {} $docdir");
 			}
 			else {
 				doit("cp", "-a", $doc, "$tmp/usr/share/doc/$package");
@@ -292,9 +304,30 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 			doit("install","-g",0,"-o",0,"-d","$tmp/usr/share/doc-base/");
 		}
 	}
+	# check for duplicate document ids
+	my %used_doc_ids;
+	for my $fn (keys %doc_ids) {
+		$used_doc_ids{$doc_ids{$fn}}++;
+	}
 	foreach my $fn (keys %doc_ids) {
-		doit("install","-g",0,"-o",0,"-m644","-p","debian/$fn",
-		     "$tmp/usr/share/doc-base/$doc_ids{$fn}");
+		# if this document ID is duplicated, we will install
+		# to usr/share/doc-base/packagename instead of
+		# usr/share/doc-base/doc_id. To allow for multiple
+		# conflicting doc-bases in a single package, we will
+		# install to usr/share/doc-base/packagename-extrabits
+		# if the doc-base file is
+		# packagename.doc-base.extrabits
+		if ($used_doc_ids{$doc_ids{$fn}} > 1) {
+			my $fn_no_docbase = $fn;
+			$fn_no_docbase =~ s/\.doc-base(?:\.(.*))?/
+			    if (defined $1 and length $1) {"-$1"} else {''}/xe;
+			doit("install","-g",0,"-o",0,"-m644","-p","debian/$fn",
+			     "$tmp/usr/share/doc-base/$fn_no_docbase");
+		}
+		else {
+			doit("install","-g",0,"-o",0,"-m644","-p","debian/$fn",
+			     "$tmp/usr/share/doc-base/$doc_ids{$fn}");
+		}
 	}
 }
 

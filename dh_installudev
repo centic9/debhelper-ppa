@@ -16,11 +16,11 @@ B<dh_installudev> [S<I<debhelper options>>] [B<-n>] [B<--name=>I<name>] [B<--pri
 
 =head1 DESCRIPTION
 
-dh_installudev is a debhelper program that is responsible for
-installing udev rules files.
+B<dh_installudev> is a debhelper program that is responsible for
+installing B<udev> rules files.
 
-Code is added to the preinst and postinst to handle the upgrade from the
-old udev rules file location.
+Code is added to the F<preinst> and F<postinst> to handle the upgrade from the
+old B<udev> rules file location.
 
 =head1 FILES
 
@@ -28,7 +28,7 @@ old udev rules file location.
 
 =item debian/I<package>.udev
 
-Installed into lib/udev/rules.d/ in the package build directory.
+Installed into F<lib/udev/rules.d/> in the package build directory.
 
 =back
 
@@ -38,17 +38,17 @@ Installed into lib/udev/rules.d/ in the package build directory.
 
 =item B<--name=>I<name>
 
-When this parameter is used, dh_installudev looks for and
+When this parameter is used, B<dh_installudev> looks for and
 installs files named debian/I<package>.I<name>.udev instead of the usual
 debian/I<package>.udev.
 
 =item B<--priority=>I<priority>
 
-Sets the priority string of the rules.d symlink. Default is 40.
+Sets the priority the file. Default is 40.
 
 =item B<-n>, B<--noscripts>
 
-Do not modify postinst/postrm scripts.
+Do not modify F<preinst>/F<postinst> scripts.
 
 =back
 
@@ -66,7 +66,6 @@ init();
 # we need to calculate that old value to handle
 # conffile moves correctly.
 my $old_priority=$dh{PRIORITY};
-my $old_ubuntu_priority=$dh{PRIORITY};
 
 # In case a caller still uses the `z` prefix, remove it.
 if (defined $dh{PRIORITY}) {
@@ -76,13 +75,13 @@ if (defined $dh{PRIORITY}) {
 if (! defined $dh{PRIORITY}) {
 	$dh{PRIORITY}="40";
 	$old_priority="z60";
-	$old_ubuntu_priority="50";
 }
 if ($dh{PRIORITY}) {
 	$dh{PRIORITY}.="-";
 	$old_priority.="_";
-	$old_ubuntu_priority.="-";
 }
+
+# PROMISE: DH NOOP WITHOUT udev
 
 foreach my $package (@{$dh{DOPACKAGES}}) {
 	my $tmp=tmpdir($package);
@@ -111,13 +110,6 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 			$rule=~s/^\/lib/\/etc/;
 			autoscript($package,"preinst","preinst-moveconffile","s!#OLD#!$old!g;s!#NEW#!$rule!g;s!#PACKAGE#!$package!g");
 			autoscript($package,"postinst","postinst-moveconffile","s!#OLD#!$old!g;s!#NEW#!$rule!g");
-			if ($old_ubuntu_priority ne $old_priority) {
-				$old="/etc/udev/rules.d/$old_ubuntu_priority$filename";
-				autoscript($package,"preinst","preinst-moveconffile","s!#OLD#!$old!g;s!#NEW#!$rule!g;s!#PACKAGE#!$package!g");
-				if ($old_ubuntu_priority ne $dh{PRIORITY}) {
-					autoscript($package,"postinst","postinst-moveconffile","s!#OLD#!$old!g;s!#NEW#!$rule!g");
-				}
-			}
 		}
 	}
 }

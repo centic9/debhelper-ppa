@@ -7,6 +7,7 @@
 package Debian::Debhelper::Buildsystem::cmake;
 
 use strict;
+use Debian::Debhelper::Dh_Lib qw(compat);
 use base 'Debian::Debhelper::Buildsystem::makefile';
 
 sub DESCRIPTION {
@@ -42,16 +43,35 @@ sub configure {
 	# Standard set of cmake flags
 	push @flags, "-DCMAKE_INSTALL_PREFIX=/usr";
 	push @flags, "-DCMAKE_VERBOSE_MAKEFILE=ON";
+	push @flags, "-DCMAKE_BUILD_TYPE=None";
+
+	# CMake doesn't respect CPPFLAGS, see #653916.
+	if ($ENV{CPPFLAGS} && ! compat(8)) {
+		$ENV{CFLAGS}   .= ' ' . $ENV{CPPFLAGS};
+		$ENV{CXXFLAGS} .= ' ' . $ENV{CPPFLAGS};
+	}
 
 	$this->mkdir_builddir();
-	$this->doit_in_builddir("cmake", $this->get_source_rel2builddir(), @flags, @_);
+	eval { 
+		$this->doit_in_builddir("cmake", $this->get_source_rel2builddir(), @flags, @_);
+	};
+	if ($@) {
+		if (-e $this->get_buildpath("CMakeCache.txt")) {
+			$this->doit_in_builddir("tail -v -n +0 CMakeCache.txt");
+		}
+		die $@;
+	}
 }
 
 sub test {
 	my $this=shift;
 
+	# Unlike make, CTest does not have "unlimited parallel" setting (-j implies
+	# -j1). So in order to simulate unlimited parallel, allow to fork a huge
+	# number of threads instead.
+	my $parallel = ($this->get_parallel() > 0) ? $this->get_parallel() : 999;
 	$ENV{CTEST_OUTPUT_ON_FAILURE} = 1;
-	return $this->SUPER::test(@_);
+	return $this->SUPER::test(@_, "ARGS+=-j$parallel");
 }
 
 1

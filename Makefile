@@ -1,3 +1,9 @@
+# List of files of dh_* commands. Sorted for debhelper man page.
+COMMANDS=$(shell find . -maxdepth 1 -type f -perm /100 -name "dh_*" -printf "%f\n" | sort)
+
+# Find deprecated commands by looking at their synopsis.
+DEPRECATED=$(shell egrep -l '^dh_.* - .*deprecated' $(COMMANDS))
+
 # This generates a list of synopses of debhelper commands, and substitutes
 # it in to the #LIST# line on the man page fed to it on stdin. Must be passed
 # parameters of all the executables or pod files to get the synopses from.
@@ -11,7 +17,7 @@ MAKEMANLIST=perl -e ' \
 		        close IN; \
 		        if ($$file=~m/=head1 .*?\n\n(.*?) - (.*?)\n\n/s) { \
 				my $$item="=item $$1(1)\n\n$$2\n\n"; \
-				if ($$2!~/deprecated/) { \
+				if (" $(DEPRECATED) " !~ / $$1 /) { \
 			                $$list.=$$item; \
 				} \
 				else { \
@@ -32,14 +38,21 @@ VERSION=$(shell expr "`dpkg-parsechangelog |grep Version:`" : '.*Version: \(.*\)
 
 PERLLIBDIR=$(shell perl -MConfig -e 'print $$Config{vendorlib}')/Debian/Debhelper
 
+PREFIX=/usr
+
 POD2MAN=pod2man --utf8 -c Debhelper -r "$(VERSION)"
 
+ifneq ($(USE_NLS),no)
 # l10n to be built is determined from .po files
-LANGS=$(notdir $(basename $(wildcard man/po4a/po/*.po)))
+LANGS?=$(notdir $(basename $(wildcard man/po4a/po/*.po)))
+else
+LANGS=
+endif
 
 build: version debhelper.7
-	find . -maxdepth 1 -type f -perm +100 -name "dh*" \
+	find . -maxdepth 1 -type f -perm /100 -name "dh*" \
 		-exec $(POD2MAN) {} {}.1 \;
+ifneq ($(USE_NLS),no)
 	po4a --previous -L UTF-8 man/po4a/po4a.cfg 
 	set -e; \
 	for lang in $(LANGS); do \
@@ -54,6 +67,7 @@ build: version debhelper.7
 				$(POD2MAN) --name="debhelper" --section=7 > debhelper.$$lang.7; \
 		fi; \
 	done
+endif
 
 version:
 	printf "package Debian::Debhelper::Dh_Version;\n\$$version='$(VERSION)';\n1" > \
@@ -61,24 +75,28 @@ version:
 
 debhelper.7: debhelper.pod
 	cat debhelper.pod | \
-		$(MAKEMANLIST) `find . -maxdepth 1 -type f -perm +100 -name "dh_*" | sort` | \
+		$(MAKEMANLIST) $(COMMANDS) | \
 		$(POD2MAN) --name="debhelper" --section=7  > debhelper.7
 
 clean:
 	rm -f *.1 *.7 Debian/Debhelper/Dh_Version.pm
+ifneq ($(USE_NLS),no)
 	po4a --previous --rm-translations --rm-backups man/po4a/po4a.cfg
+endif
 	for lang in $(LANGS); do \
 		if [ -e man/$$lang ]; then rmdir man/$$lang; fi; \
 	done;
 
 install:
-	install -d $(DESTDIR)/usr/bin \
-		$(DESTDIR)/usr/share/debhelper/autoscripts \
+	install -d $(DESTDIR)$(PREFIX)/bin \
+		$(DESTDIR)$(PREFIX)/share/debhelper/autoscripts \
 		$(DESTDIR)$(PERLLIBDIR)/Sequence \
 		$(DESTDIR)$(PERLLIBDIR)/Buildsystem
-	install $(shell find -maxdepth 1 -mindepth 1 -name dh\* |grep -v \.1\$$) $(DESTDIR)/usr/bin
-	install -m 0644 autoscripts/* $(DESTDIR)/usr/share/debhelper/autoscripts
+	install dh $(COMMANDS) $(DESTDIR)$(PREFIX)/bin
+	install -m 0644 autoscripts/* $(DESTDIR)$(PREFIX)/share/debhelper/autoscripts
 	install -m 0644 Debian/Debhelper/*.pm $(DESTDIR)$(PERLLIBDIR)
+	[ "$(PREFIX)" = /usr ] || \
+		sed -i '/$$prefix=/s@/usr@$(PREFIX)@g' $(DESTDIR)$(PERLLIBDIR)/Dh_Lib.pm
 	install -m 0644 Debian/Debhelper/Sequence/*.pm $(DESTDIR)$(PERLLIBDIR)/Sequence
 	install -m 0644 Debian/Debhelper/Buildsystem/*.pm $(DESTDIR)$(PERLLIBDIR)/Buildsystem
 
