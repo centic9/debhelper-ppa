@@ -44,7 +44,7 @@ debian/I<package>.udev.
 
 =item B<--priority=>I<priority>
 
-Sets the priority the file. Default is 40.
+Sets the priority the file. Default is 60.
 
 =item B<-n>, B<--noscripts>
 
@@ -73,7 +73,7 @@ if (defined $dh{PRIORITY}) {
 }
 
 if (! defined $dh{PRIORITY}) {
-	$dh{PRIORITY}="40";
+	$dh{PRIORITY}="60";
 	$old_priority="z60";
 }
 if ($dh{PRIORITY}) {

@@ -10,9 +10,10 @@ use strict;
 use Exporter;
 use vars qw(@ISA @EXPORT %dh);
 @ISA=qw(Exporter);
-@EXPORT=qw(&init &doit &complex_doit &verbose_print &error &warning &tmpdir
-	    &pkgfile &pkgext &pkgfilename &isnative &autoscript &filearray
-	    &filedoublearray &getpackages &basename &dirname &xargs %dh
+@EXPORT=qw(&init &doit &doit_noerror &complex_doit &verbose_print &error
+            &warning &tmpdir &pkgfile &pkgext &pkgfilename &isnative
+	    &autoscript &filearray &filedoublearray
+	    &getpackages &basename &dirname &xargs %dh
 	    &compat &addsubstvar &delsubstvar &excludefile &package_arch
 	    &is_udeb &udeb_filename &debhelper_script_subst &escape_shell
 	    &inhibit_log &load_log &write_log &commit_override_log
@@ -206,16 +207,25 @@ sub escape_shell {
 }
 
 # Run a command, and display the command to stdout if verbose mode is on.
+# Throws error if command exits nonzero.
+#
 # All commands that modifiy files in $TMP should be ran via this 
 # function.
 #
 # Note that this cannot handle complex commands, especially anything
 # involving redirection. Use complex_doit instead.
 sub doit {
+	doit_noerror(@_) || _error_exitcode(join(" ", @_));
+}
+
+sub doit_noerror {
 	verbose_print(escape_shell(@_));
 
 	if (! $dh{NO_ACT}) {
-		system(@_) == 0 || _error_exitcode(join(" ", @_));
+		return (system(@_) == 0)
+	}
+	else {
+		return 1;
 	}
 }
 
@@ -776,8 +786,9 @@ sub sourcepackage {
 # for the system's arch) or independant. If nothing is specified,
 # returns all packages. Also, "both" returns the union of "arch" and "indep"
 # packages.
-# As a side effect, populates %package_arches and %package_types with the
-# types of all packages (not only those returned).
+#
+# As a side effect, populates %package_arches and %package_types
+# with the types of all packages (not only those returned).
 my (%package_types, %package_arches);
 sub getpackages {
 	my $type=shift;
@@ -792,6 +803,11 @@ sub getpackages {
 	my $package_type;
 	my @list=();
 	my %seen;
+	my @profiles=();
+	my $included_in_build_profile;
+	if (exists $ENV{'DEB_BUILD_PROFILES'}) {
+		@profiles=split /\s+/, $ENV{'DEB_BUILD_PROFILES'};
+	}
 	open (CONTROL, 'debian/control') ||
 		error("cannot read debian/control: $!\n");
 	while (<CONTROL>) {
@@ -807,6 +823,7 @@ sub getpackages {
 				error("debian/control has a duplicate entry for $package");
 			}
 			$package_type="deb";
+			$included_in_build_profile=1;
 		}
 		if (/^Architecture:\s*(.*)/) {
 			$arch=$1;
@@ -814,19 +831,37 @@ sub getpackages {
 		if (/^(?:X[BC]*-)?Package-Type:\s*(.*)/) {
 			$package_type=$1;
 		}
-		
+		# rely on libdpkg-perl providing the parsing functions because
+		# if we work on a package with a Build-Profiles field, then a
+		# high enough version of dpkg-dev is needed anyways
+		if (/^Build-Profiles:\s*(.*)/) {
+		        my $build_profiles=$1;
+			eval {
+				require Dpkg::BuildProfiles;
+				my @restrictions=Dpkg::BuildProfiles::parse_build_profiles($build_profiles);
+				if (@restrictions) {
+					$included_in_build_profile=Dpkg::BuildProfiles::evaluate_restriction_formula(\@restrictions, \@profiles);
+				}
+			};
+			if ($@) {
+				error("The control file has a Build-Profiles field. Requires libdpkg-perl >= 1.17.14");
+			}
+		}
+
 		if (!$_ or eof) { # end of stanza.
 			if ($package) {
 				$package_types{$package}=$package_type;
 				$package_arches{$package}=$arch;
 			}
 
-			if ($package &&
+			if ($package && $included_in_build_profile &&
 			    ((($type eq 'indep' || $type eq 'both') && $arch eq 'all') ||
-			     (($type eq 'arch'  || $type eq 'both') && ($arch eq 'any' ||
-					     ($arch ne 'all' &&
-			                      samearch(buildarch(), $arch)))) ||
-			     ! $type)) {
+			     (($type eq 'arch'  || $type eq 'both') &&
+				($arch eq 'any' ||
+				  ($arch ne 'all' && samearch(buildarch(), $arch))
+			        )
+			     ) || ! $type)
+			    ) {
 				push @list, $package;
 				$package="";
 				$arch="";

@@ -221,7 +221,7 @@ source package tree.
 
 Enable out of source building and use the specified I<directory> as the build
 directory. If I<directory> parameter is omitted, a default build directory
-will chosen.
+will be chosen.
 
 If this option is not specified, building will be done in source by default
 unless the build system requires or prefers out of source tree building.
@@ -532,12 +532,18 @@ This compatibility level is still open for development; use with caution.
 
 Changes from v9 are:
 
+=over 8
+
 =item -
 
 B<dh_installinit> will no longer install a file named debian/I<package>
 as an init script.
 
-=over 8
+=item -
+
+B<dh_installdocs> will error out if it detects links created with
+--link-doc between packages of architecture "all" and non-"all" as it
+breaks binNMUs.
 
 =item -
 
@@ -566,7 +572,16 @@ To facilitate this, as well as give you more control over which packages
 are acted on by debhelper programs, all debhelper programs accept the
 B<-a>, B<-i>, B<-p>, and B<-s> parameters. These parameters are cumulative. 
 If none are given, debhelper programs default to acting on all packages listed
-in the control file.
+in the control file, with the exceptions below.
+
+First, any package whose B<Architecture> field in B<debian/control> does not
+match the build architecture will be excluded
+(L<Debian Policy, section 5.6.8>).
+
+Also, some additional packages may be excluded based on the contents of the
+B<DEB_BUILD_PROFILES> environment variable and B<Build-Profiles> fields in
+binary package stanzas in B<debian/control>, according to the draft policy at
+L<https://wiki.debian.org/BuildProfileSpec>.
 
 =head2 Automatic generation of Debian install scripts
 
@@ -642,8 +657,8 @@ F<preinst>, F<postrm>, F<prerm>, and F<config> scripts, etc.
 
 =item B<DH_VERBOSE>
 
-Set to B<1> to enable verbose mode. Debhelper will output every command it runs
-that modifies files on the build system.
+Set to B<1> to enable verbose mode. Debhelper will output every command it
+runs. Also enables verbose build logs for some build systems like autoconf.
 
 =item B<DH_COMPAT>
 
@@ -688,7 +703,7 @@ B<DH_ALWAYS_EXCLUDE=CVS:.svn>
 
 A set of example F<debian/rules> files that use debhelper.
 
-=item L<http://kitenet.net/~joey/code/debhelper/>
+=item L<http://joeyh.name/code/debhelper/>
 
 Debhelper web site.
 

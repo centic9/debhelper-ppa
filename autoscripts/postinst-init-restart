@@ -1,7 +1,5 @@
-if [ -x "/etc/init.d/#SCRIPT#" ] || [ -e "/etc/init/#SCRIPT#.conf" ]; then
-	if [ ! -e "/etc/init/#SCRIPT#.conf" ]; then
-		update-rc.d #SCRIPT# #INITPARMS# >/dev/null
-	fi
+if [ -x "/etc/init.d/#SCRIPT#" ]; then
+	update-rc.d #SCRIPT# #INITPARMS# >/dev/null
 	if [ -n "$2" ]; then
 		_dh_action=restart
 	else

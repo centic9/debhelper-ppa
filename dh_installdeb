@@ -69,8 +69,8 @@ init();
 my %maintscript_predeps = (
 	"rm_conffile" => "",
 	"mv_conffile" => "",
-	"symlink_to_dir" => "1.17.5",
-	"dir_to_symlink" => "1.17.5",
+	"symlink_to_dir" => "1.17.14",
+	"dir_to_symlink" => "1.17.13",
 );
 
 foreach my $package (@{$dh{DOPACKAGES}}) {
@@ -128,7 +128,7 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 	# Automatic conffiles registration: If it is in /etc, it is a
 	# conffile.
 	if (! compat(2) && -d "$tmp/etc") {
-		complex_doit("find $tmp/etc -type f -printf '/etc/%P\n' >> $tmp/DEBIAN/conffiles");
+		complex_doit("find $tmp/etc -type f -printf '/etc/%P\n' | LC_ALL=C sort >> $tmp/DEBIAN/conffiles");
 		# Anything found?
 		if (-z "$tmp/DEBIAN/conffiles") {
 			doit("rm", "-f", "$tmp/DEBIAN/conffiles");

@@ -129,10 +129,6 @@ preference to the files it normally installs.
 This parameter is deprecated, use the B<--name> parameter instead. This
 parameter is incompatible with the use of upstart jobs.
 
-=item B<--upstart-only>
-
-Deprecated option, ignored for compatibility.
-
 =item B<--error-handler=>I<function>
 
 Call the named shell I<function> if running the init script fails. The
@@ -157,7 +153,6 @@ init(options => {
 	"init-script=s" => \$dh{INIT_SCRIPT},
 	"update-rcd-params=s", => \$dh{U_PARAMS},
 	"remove-d" => \$dh{D_FLAG},
-	"upstart-only" => \$dh{UPSTART_ONLY},
 });
 
 # PROMISE: DH NOOP WITHOUT service tmpfile default upstart init init.d
@@ -170,7 +165,7 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 	my $scriptsrc;
 	my $jobfile=$package;
 	if (defined $dh{NAME}) {
-		$jobfile=$script=$dh{NAME};
+		$jobfile=$script=$scriptsrc=$dh{NAME};
 	}
 	elsif ($dh{D_FLAG}) {
 		# -d on the command line sets D_FLAG. We will 
@@ -239,12 +234,6 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 	my $init=pkgfile($package,$scriptsrc) || pkgfile($package,"init") ||
 		pkgfile($package,"init.d");
 
-	if ($job ne '' || ($dh{ONLYSCRIPTS} && -e "$tmp/etc/init/$jobfile.conf")) {
-		# minimal version of invoke-rc.d that supports upstart jobs
-		# directly
-		addsubstvar($package, "misc:Depends", "sysv-rc (>= 2.88dsf-24) | file-rc (>= 0.8.16)");
-	}
-
 	if ($init ne '' && ! $dh{ONLYSCRIPTS}) {
 		if (! -d "$tmp/etc/init.d") {
 			doit("install","-d","$tmp/etc/init.d");
@@ -300,42 +289,34 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 					# update-rc.d, and restart (or
 					# start if new install) script
 					autoscript($package,"postinst", "postinst-init-restart",
-						"s/#SCRIPT#/$script/g;s/#INITPARMS#/$params/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
+						"s/#SCRIPT#/$script/;s/#INITPARMS#/$params/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
 				}
 				else {
 					# update-rc.d, and start script
 					autoscript($package,"postinst", "postinst-init",
-						"s/#SCRIPT#/$script/g;s/#INITPARMS#/$params/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
+						"s/#SCRIPT#/$script/;s/#INITPARMS#/$params/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
 				}
 			
 				if ($dh{R_FLAG} || $dh{RESTART_AFTER_UPGRADE}) {
 					# stops script only on remove
 					autoscript($package,"prerm","prerm-init-norestart",
-						"s/#SCRIPT#/$script/g;s/#INITPARMS#/$params/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
+						"s/#SCRIPT#/$script/;s/#INITPARMS#/$params/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
 				}
 				else {
 					# always stops script
 					autoscript($package,"prerm","prerm-init",
-						"s/#SCRIPT#/$script/g;s/#INITPARMS#/$params/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
+						"s/#SCRIPT#/$script/;s/#INITPARMS#/$params/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
 				}
 			}
 			else {
 				# just update-rc.d
 				autoscript($package,"postinst", "postinst-init-nostart",
-					"s/#SCRIPT#/$script/g;s/#INITPARMS#/$params/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
+					"s/#SCRIPT#/$script/;s/#INITPARMS#/$params/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
 			}
 
-			if ($job ne '') {
-				$script=$jobfile;
-				autoscript($package,"preinst", "preinst-upstart-compatibility",
-					"s!#OLD#!/etc/init.d/$script!g;s!#PACKAGE#!$package!g");
-				autoscript($package,"postinst", "postinst-upstart-replace",
-					"s/#SCRIPT#/$script/g;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
-			} else {
-				# removes rc.d links
-				autoscript($package,"postrm","postrm-init",
-					"s/#SCRIPT#/$script/g;s/#INITPARMS#/$params/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
-			}
+			# removes rc.d links
+			autoscript($package,"postrm","postrm-init",
+				"s/#SCRIPT#/$script/;s/#INITPARMS#/$params/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
 		}
 	}
 }
@@ -353,7 +334,5 @@ Joey Hess <joeyh@debian.org>
 Steve Langasek <steve.langasek@canonical.com>
 
 Michael Stapelberg <stapelberg@debian.org>
-
-Scott James Remnant <scott@canonical.com>
 
 =cut
