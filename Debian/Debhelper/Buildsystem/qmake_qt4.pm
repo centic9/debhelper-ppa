@@ -3,7 +3,7 @@ package Debian::Debhelper::Buildsystem::qmake_qt4;
 use strict;
 use warnings;
 use Debian::Debhelper::Dh_Lib qw(error);
-use base 'Debian::Debhelper::Buildsystem::qmake';
+use parent qw(Debian::Debhelper::Buildsystem::qmake);
 
 sub DESCRIPTION {
 	"qmake for QT 4 (*.pro)";
@@ -16,3 +16,9 @@ sub configure {
 }
 
 1
+
+# Local Variables:
+# indent-tabs-mode: t
+# tab-width: 4
+# cperl-indent-level: 4
+# End:

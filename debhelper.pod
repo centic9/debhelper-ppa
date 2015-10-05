@@ -552,6 +552,24 @@ running debhelper commands. This will not affect packages that only build
 with debhelper commands, but it may expose bugs in commands not included in
 debhelper.
 
+=item -
+
+B<dh_makeshlibs> now invokes I<ldconfig -X> instead of just
+I<ldconfig> in its generated maintainer scripts snippets.  The new
+call will only update the ld cache (instead of also updating
+symlinks).
+
+=item -
+
+B<dh_installdeb> no longer installs a maintainer-provided
+debian/I<package>.shlibs file.  This is now done by B<dh_makeshlibs>
+instead.
+
+=item -
+
+B<dh_installwm> refuses to create a broken package if no man page
+can be found (required to register for the x-window-manager alternative).
+
 =back
 
 =back
@@ -653,12 +671,27 @@ F<preinst>, F<postrm>, F<prerm>, and F<config> scripts, etc.
 
 =head1 ENVIRONMENT
 
+The following environment variables can influence the behavior of debhelper.
+It is important to note that these must be actual environment variables in
+order to function properly (not simply F<Makefile> variables). To specify
+them properly in F<debian/rules>, be sure to "B<export>" them. For example,
+"B<export DH_VERBOSE>".
+
 =over 4
 
 =item B<DH_VERBOSE>
 
 Set to B<1> to enable verbose mode. Debhelper will output every command it
 runs. Also enables verbose build logs for some build systems like autoconf.
+
+=item B<DH_QUIET>
+
+Set to B<1> to enable quiet mode. Debhelper will not output commands calling
+the upstream build system nor will dh print which subcommands are called
+and depending on the upstream build system might make that more quiet, too.
+This makes it easier to spot important messages but makes the output quite
+useless as buildd log.
+Ignored if DH_VERBOSE is also set.
 
 =item B<DH_COMPAT>
 

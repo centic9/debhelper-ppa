@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 
 =head1 NAME
 
@@ -7,6 +7,7 @@ dh_installdebconf - install files used by debconf in package build directories
 =cut
 
 use strict;
+use warnings;
 use Debian::Debhelper::Dh_Lib;
 
 =head1 SYNOPSIS
@@ -89,7 +90,7 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 	my $templates=pkgfile($package,"templates");
 
 	if (! -d "$tmp/DEBIAN") {
-		doit("install","-o",0,"-g",0,"-d","$tmp/DEBIAN");
+		install_dir("$tmp/DEBIAN");
 	}
 
 	if (! is_udeb($package)) {
@@ -103,13 +104,12 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 		}
 
 		umask(0022); # since I do a redirect below
-		
+
 		if (-d "debian/po") {
 			complex_doit("po2debconf @extraparams $templates > $tmp/DEBIAN/templates");
 		}
 		else {
-			doit("install", "-o", 0, "-g", 0, "-m", 644, "-p",
-			     $templates, "$tmp/DEBIAN/templates");
+			install_file($templates,"$tmp/DEBIAN/templates");
 		}
 	}
 
@@ -136,3 +136,9 @@ This program is a part of debhelper.
 Joey Hess <joeyh@debian.org>
 
 =cut
+
+# Local Variables:
+# indent-tabs-mode: t
+# tab-width: 4
+# cperl-indent-level: 4
+# End:

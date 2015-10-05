@@ -1,0 +1,30 @@
+From fe1277fe3301839d5c8b1d9c7ef518909e1b4277 Mon Sep 17 00:00:00 2001
+From: Niels Thykier <niels@thykier.net>
+Date: Sat, 4 Apr 2015 08:45:21 +0200
+Subject: [PATCH] Unconditionally enable ddeb-support
+
+Signed-off-by: Niels Thykier <niels@thykier.net>
+
+Conflicts:
+	dh_strip
+---
+ dh_strip | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/dh_strip b/dh_strip
+index 0085752..b9efe79 100755
+--- a/dh_strip
++++ b/dh_strip
+@@ -144,7 +144,8 @@ if ($dh{MIGRATE_DDEB} and not $dh{ENABLE_DDEBS}) {
+ 	error("--ddeb-migration and --no-ddebs are mutually exclusive");
+ }
+ 
+-$dh{ENABLE_DDEBS} = 0 if not $ENV{'DH_BUILD_DDEBS'};
++#Allow ddebs to be built
++# $dh{ENABLE_DDEBS} = 0 if not $ENV{'DH_BUILD_DDEBS'};
+ 
+ # This variable can be used to turn off stripping (see Policy).
+ if (get_buildoption('nostrip')) {
+-- 
+2.1.4
+

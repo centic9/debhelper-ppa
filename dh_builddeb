@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 
 =head1 NAME
 
@@ -7,6 +7,7 @@ dh_builddeb - build Debian binary packages
 =cut
 
 use strict;
+use warnings;
 use Debian::Debhelper::Dh_Lib;
 
 =head1 SYNOPSIS
@@ -16,7 +17,8 @@ B<dh_builddeb> [S<I<debhelper options>>] [B<--destdir=>I<directory>] [B<--filena
 =head1 DESCRIPTION
 
 B<dh_builddeb> simply calls L<dpkg-deb(1)> to build a Debian package or
-packages.
+packages.  It will also build packages for ddebs when L<dh_strip(1)>
+and L<dh_gencontrol(1)> have prepared them.
 
 It supports building multiple binary packages in parallel, when enabled by
 DEB_BUILD_OPTIONS.
@@ -80,6 +82,17 @@ sub reap {
 	}
 }
 
+sub default_compressor_args {
+	my ($default_comp, @args) = @_;
+
+	for my $arg (@args) {
+		# Explicit compressor arg given
+		return @args if $arg =~ m/^-Z/;
+	}
+
+	return (@{$default_comp}, @args);
+}
+
 foreach my $package (@{$dh{DOPACKAGES}}) {
 	my $pid=fork();
 	if (! defined $pid) {
@@ -93,6 +106,7 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 
 	# child
 	my $tmp=tmpdir($package);
+	my $ddeb_tmpdir = "debian/.debhelper/${package}/ddeb-root";
 	if (exists $ENV{DH_ALWAYS_EXCLUDE} && length $ENV{DH_ALWAYS_EXCLUDE}) {
 		if (! compat(5)) {
 			complex_doit("find $tmp $dh{EXCLUDE_FIND} | xargs rm -rf");
@@ -102,6 +116,23 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 			# remove everything.
 			complex_doit("find $tmp -name $_ | xargs rm -rf")
 				foreach split(":", $ENV{DH_ALWAYS_EXCLUDE});
+		}
+	}
+	if ( -d $ddeb_tmpdir) {
+		my $ddeb_control = "${ddeb_tmpdir}/DEBIAN/control";
+		# Only build the ddeb if it has a control file.  People might
+		# have skipped dh_gencontrol.
+		if ( -f $ddeb_control ) {
+			# XXX: Should we blindly overrule the maintainer here?  It
+			# is not apparent that their explicit -z was intended for
+			# the ddeb.
+			my @args = default_compressor_args(["-z1", "-Zxz", "-Sextreme"],
+											   @{$dh{U_PARAMS}});
+			doit("dpkg-deb", @args,
+				 "--build", $ddeb_tmpdir, $dh{DESTDIR});
+		} else {
+			warning("Not building ddeb for ${package} as it has no control file");
+			warning("Please use dh_gencontrol to avoid this issue");
 		}
 	}
 	if (! is_udeb($package)) {
@@ -132,3 +163,9 @@ This program is a part of debhelper.
 Joey Hess <joeyh@debian.org>
 
 =cut
+
+# Local Variables:
+# indent-tabs-mode: t
+# tab-width: 4
+# cperl-indent-level: 4
+# End:

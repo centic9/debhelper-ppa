@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 
 =head1 NAME
 
@@ -7,6 +7,7 @@ dh_installwm - register a window manager
 =cut
 
 use strict;
+use warnings;
 use Debian::Debhelper::Dh_Lib;
 
 =head1 SYNOPSIS
@@ -102,6 +103,10 @@ WM:		foreach my $wm (@wm) {
 					}
 				}
 			}
+			if (! compat(9)) {
+				error("no manpage found (creating an x-window-manager alternative requires a slave symlink for the manpage)");
+			}
+			# Reaching this code means a broken package will be produced.
 			autoscript($package,"postinst","postinst-wm-noman","s:#WM#:$wm:;s/#PRIORITY#/$dh{PRIORITY}/",);
 		}
 	}
@@ -118,3 +123,9 @@ This program is a part of debhelper.
 Joey Hess <joeyh@debian.org>
 
 =cut
+
+# Local Variables:
+# indent-tabs-mode: t
+# tab-width: 4
+# cperl-indent-level: 4
+# End:

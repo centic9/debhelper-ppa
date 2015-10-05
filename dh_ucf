@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 
 =head1 NAME
 
@@ -7,6 +7,7 @@ dh_ucf - register configuration files with ucf
 =cut
 
 use strict;
+use warnings;
 use Debian::Debhelper::Dh_Lib;
 
 =head1 SYNOPSIS
@@ -94,3 +95,9 @@ Joey Hess <joeyh@debian.org>
 Jeroen Schot <schot@a-eskwadraat.nl>
 
 =cut
+
+# Local Variables:
+# indent-tabs-mode: t
+# tab-width: 4
+# cperl-indent-level: 4
+# End:

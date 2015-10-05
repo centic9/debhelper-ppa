@@ -6,7 +6,8 @@
 package Debian::Debhelper::Buildsystem::ant;
 
 use strict;
-use base 'Debian::Debhelper::Buildsystem';
+use warnings;
+use parent qw(Debian::Debhelper::Buildsystem);
 
 sub DESCRIPTION {
 	"Ant (build.xml)"
@@ -26,12 +27,28 @@ sub new {
 
 sub build {
 	my $this=shift;
-	$this->doit_in_sourcedir("ant", @_);
+	my $d_ant_prop = $this->get_sourcepath('debian/ant.properties');
+	my @args;
+	if ( -f $d_ant_prop ) {
+		push(@args, '-propertyfile', $d_ant_prop);
+	}
+	$this->doit_in_sourcedir("ant", @args, @_);
 }
 
 sub clean {
 	my $this=shift;
-	$this->doit_in_sourcedir("ant", "clean", @_);
+	my $d_ant_prop = $this->get_sourcepath('debian/ant.properties');
+	my @args;
+	if ( -f $d_ant_prop ) {
+		push(@args, '-propertyfile', $d_ant_prop);
+	}
+	$this->doit_in_sourcedir("ant", @args, "clean", @_);
 }
 
 1
+
+# Local Variables:
+# indent-tabs-mode: t
+# tab-width: 4
+# cperl-indent-level: 4
+# End:

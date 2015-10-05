@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 
 =head1 NAME
 
@@ -7,6 +7,7 @@ dh - debhelper command sequencer
 =cut
 
 use strict;
+use warnings;
 use Debian::Debhelper::Dh_Lib;
 
 =head1 SYNOPSIS
@@ -381,7 +382,6 @@ my @i = qw{
 	dh_installpam
 	dh_installppp
 	dh_installudev
-	dh_installwm
 	dh_installgsettings
 	dh_bugfiles
 	dh_ucf
@@ -392,6 +392,7 @@ my @i = qw{
 	dh_usrlocal
 
 	dh_link
+	dh_installwm
 	dh_installxfonts
 	dh_compress
 	dh_fixperms
@@ -574,6 +575,14 @@ while (@ARGV_orig) {
 		next;
 	}
 	elsif ($opt=~/^-/) {
+		if (not @options and $opt eq '--parallel') {
+			# Having an non-empty "@options" hurts performance quite a
+			# bit.  At the same time, we want to promote the use of
+			# --parallel, so "tweak" the options a bit if there is no
+			# reason to include it.
+			my $max_parallel = get_buildoption('parallel') // 1;
+			next if $max_parallel == 1;
+		}
 		push @options, "-O".$opt;
 		$user_specified_options=1
 			unless $opt =~ /^--(parallel|buildsystem|sourcedirectory|builddirectory|)/;
@@ -713,7 +722,9 @@ sub run {
 
 	# 3 space indent lines the command being run up under the
 	# sequence name after "dh ".
-	print "   ".escape_shell($command, @options)."\n";
+	if (!$dh{QUIET}) {
+		print "   ".escape_shell($command, @options)."\n";
+	}
 
 	return if $dh{NO_ACT};
 			
@@ -980,3 +991,9 @@ This program is a part of debhelper.
 Joey Hess <joeyh@debian.org>
 
 =cut
+
+# Local Variables:
+# indent-tabs-mode: t
+# tab-width: 4
+# cperl-indent-level: 4
+# End:

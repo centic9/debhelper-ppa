@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 
 =head1 NAME
 
@@ -7,6 +7,7 @@ dh_installgsettings - install GSettings overrides and set dependencies
 =cut
 
 use strict;
+use warnings;
 use Debian::Debhelper::Dh_Lib;
 
 =head1 SYNOPSIS
@@ -68,8 +69,9 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 
 	my $override = pkgfile($package,"gsettings-override");
 	if ($override ne '') {
-		doit("mkdir","-p",$gsettings_schemas_dir);
-		doit("install","-p","-m644",$override,"$gsettings_schemas_dir/${priority}_$package.gschema.override");
+		install_dir($gsettings_schemas_dir);
+		install_file($override,
+					 "$gsettings_schemas_dir/${priority}_$package.gschema.override");
 	}
 
 	if (-d "$gsettings_schemas_dir") {
@@ -96,3 +98,9 @@ Josselin Mouette <joss@debian.org>
 
 =cut
 
+
+# Local Variables:
+# indent-tabs-mode: t
+# tab-width: 4
+# cperl-indent-level: 4
+# End:

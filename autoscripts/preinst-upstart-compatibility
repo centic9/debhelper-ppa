@@ -1,0 +1,7 @@
+if [ "$1" = install ] || [ "$1" = upgrade ]; then
+	if [ -e "#OLD#" ] && [ -L "#OLD#" ] \
+	   && [ $(readlink -f "#OLD#") = /lib/init/upstart-job ]
+	then
+		rm -f "#OLD#"
+	fi
+fi

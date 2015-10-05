@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 
 =head1 NAME
 
@@ -7,6 +7,7 @@ dh_installppp - install ppp ip-up and ip-down files
 =cut
 
 use strict;
+use warnings;
 use Debian::Debhelper::Dh_Lib;
 
 =head1 SYNOPSIS
@@ -57,9 +58,9 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 		my $file=pkgfile($package, "ppp.ip-$script");
 		if ($file ne '') {
 			if (! -d "$tmp/etc/ppp/ip-$script.d") {
-				doit("install","-d","$tmp/etc/ppp/ip-$script.d");
+				install_dir("$tmp/etc/ppp/ip-$script.d");
 			}
-			doit("install","-p","-m755",$file,"$tmp/etc/ppp/ip-$script.d/".pkgfilename($package));
+			install_prog($file,"$tmp/etc/ppp/ip-$script.d/".pkgfilename($package));
 		}
 	}
 }
@@ -75,3 +76,9 @@ This program is a part of debhelper.
 Joey Hess <joeyh@debian.org>
 
 =cut
+
+# Local Variables:
+# indent-tabs-mode: t
+# tab-width: 4
+# cperl-indent-level: 4
+# End:

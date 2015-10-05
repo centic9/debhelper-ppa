@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 
 =head1 NAME
 
@@ -7,6 +7,7 @@ dh_installcron - install cron scripts into etc/cron.*
 =cut
 
 use strict;
+use warnings;
 use Debian::Debhelper::Dh_Lib;
 
 =head1 SYNOPSIS
@@ -61,18 +62,18 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 		my $cron=pkgfile($package,"cron.$type");
 		if ($cron) {
 			if (! -d "$tmp/etc/cron.$type") {
-				doit("install","-o",0,"-g",0,"-d","$tmp/etc/cron.$type");
+				install_dir("$tmp/etc/cron.$type");
 			}
-			doit("install",$cron,"$tmp/etc/cron.$type/".pkgfilename($package));
+			install_prog($cron,"$tmp/etc/cron.$type/".pkgfilename($package));
 		}
 	}
 	# Seperate because this needs to be mode 644.
 	my $cron=pkgfile($package,"cron.d");
 	if ($cron) {
 		if (! -d "$tmp/etc/cron.d") {
-			doit("install","-o",0,"-g",0,"-d","$tmp/etc/cron.d");
-		}	
-		doit("install","-m",644,$cron,"$tmp/etc/cron.d/".pkgfilename($package));
+			install_dir("$tmp/etc/cron.d");
+		}
+		install_file($cron,"$tmp/etc/cron.d/".pkgfilename($package));
 	}
 }
 
@@ -87,3 +88,9 @@ This program is a part of debhelper.
 Joey Hess <joeyh@debian.org>
 
 =cut
+
+# Local Variables:
+# indent-tabs-mode: t
+# tab-width: 4
+# cperl-indent-level: 4
+# End:

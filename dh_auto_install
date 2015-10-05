@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 
 =head1 NAME
 
@@ -7,6 +7,7 @@ dh_auto_install - automatically runs make install or similar
 =cut
 
 use strict;
+use warnings;
 use Debian::Debhelper::Dh_Lib;
 use Debian::Debhelper::Dh_Buildsystems;
 use File::Spec;
@@ -83,7 +84,7 @@ $destdir = File::Spec->rel2abs($destdir, cwd());
 foreach my $package (@{$dh{DOPACKAGES}}) {
 	my $tmp=tmpdir($package);
 	if (! -e $tmp) {
-		doit("install","-d",$tmp);
+		install_dir($tmp);
 	}
 }
 
@@ -100,3 +101,9 @@ This program is a part of debhelper.
 Joey Hess <joeyh@debian.org>
 
 =cut
+
+# Local Variables:
+# indent-tabs-mode: t
+# tab-width: 4
+# cperl-indent-level: 4
+# End:

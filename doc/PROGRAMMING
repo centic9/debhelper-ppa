@@ -18,6 +18,11 @@ output the commands, you should indent them with 1 tab). This is so we don't
 have a lot of noise output when all the debhelper commands in a debian/rules
 are run, so the important stuff is clearly visible.
 
+An exception to above rule are dh_auto_* commands and dh itself. They will
+also print the commands interacting with the upstream build system and which
+of the simple debhelper programms are called. (i.e. print what a traditional
+non-dh(1) using debian/rules would print but nothing else).
+
 Debhelper programs should accept all options listed in the "SHARED
 DEBHELPER OPTIONS" section of debhelper(7), including any long forms of
 these options, like --verbose . If necessary, the options may be ignored.
@@ -38,9 +43,10 @@ The autoscript() function (see below) is one easy way to do this.
 dh_installdeb is an exception, it will run after the other commands and
 merge these modifications into the actual postinst scripts.
 
-In general, files named debian/*.debhelper are internal to debhelper, and
-their existence or use should not be relied on by external programs such as
-the build process of a package. These files will be deleted by dh_clean.
+In general, files named debian/*.debhelper and all content in
+debian/.debhelper are internal to debhelper, and their existence or
+use should not be relied on by external programs such as the build
+process of a package. These files will be deleted by dh_clean.
 
 Debhelper programs should default to doing exactly what policy says to do.
 
@@ -152,6 +158,9 @@ doit(@command)
 	if $dh{VERBOSE} is set, it will also output the command to stdout. You
 	should use this function for almost all commands your program performs
 	that manipulate files in the package build directories.
+print_and_doit(@command)
+        Like doit but will print unless $dh{QUIET} is set. See "Standardization"
+        above for when this is allowed to be called.
 complex_doit($command)
 	Pass this function a string that is a shell command, it will run it
 	similarly to how doit() does. You can pass more complicated commands 
@@ -159,9 +168,18 @@ complex_doit($command)
 	have to worry about things like escaping shell metacharacters.
 verbose_print($message)
 	Pass this command a string, and it will echo it if $dh{VERBOSE} is set.
+nonquiet_print($message)
+	Pass this command a string, and it will echo it unless $dh{QUIET} is set.
+	See "Standardization" above for when this is allowed to be called.
 error($errormsg)
 	Pass this command a string, it will output it to standard error and
 	exit.
+error_exitcode($cmd)
+	Pass this subroutine a string (representing a command line), it will
+	output a message describing that the command failed to standard error
+	and exit.  Note that this relies on the value of $? to produce a
+	meaningful error message.  Even if $? is 0, this /will/ still terminate
+	the program (although with a rather unhelpful message).
 warning($message)
 	Pass this command a string, and it will output it to standard error
 	as a warning message.
@@ -263,6 +281,30 @@ load_log($package, $hashref)
 write_log($cmd, $package ...)
 	Writes the log files for the specified package(s), adding
 	the cmd to the end.
+make_symlink($src, $dest, $tmp)
+	Creates a Policy compliant sytem link called $dest pointing to
+	$src. If $tmp is given, then $tmp will be prefixed to $dest when
+	creating the actual symlink.
+install_dh_config_file($src, $dest[, $mode])
+	Installs $src into $dest with $mode (defaults to 0644).  If
+	compat is 9 (or later) and $src is executable, $src will be
+	executed instead and its output will be used to generate the
+	$dest file.
+install_dir($dir)
+	Create the directory denoted by the path $dir and all parent
+	entries as well (as needed).
+install_file($src, $dest)
+	Installs $src into $dest with mode 0644.  The parent dir of
+	$dest must exist (can be created with install_dir).
+	This is intended for installing regular non-executable files.
+install_prog($src, $dest)
+	Installs $src into $dest with mode 0755.  The parent dir of
+	$dest must exist (can be created with install_dir).
+	This is intended for installing scripts or binaries.
+install_lib($src, $dest)
+	Installs a library at the path $src into $dest.  The parent
+	dir of $dest must exist (can be created with install_dir).
+	This is intended for installing libraries.
 
 Sequence Addons:
 ---------------

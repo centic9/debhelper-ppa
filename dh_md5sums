@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 
 =head1 NAME
 
@@ -7,6 +7,7 @@ dh_md5sums - generate DEBIAN/md5sums file
 =cut
 
 use strict;
+use warnings;
 use Cwd;
 use Debian::Debhelper::Dh_Lib;
 
@@ -50,11 +51,12 @@ init(options => {
 
 foreach my $package (@{$dh{DOPACKAGES}}) {
 	next if is_udeb($package);
-	
+
+	my $ddeb_tmp = "debian/.debhelper/${package}/ddeb-root";
 	my $tmp=tmpdir($package);
 
 	if (! -d "$tmp/DEBIAN") {
-		doit("install","-d","$tmp/DEBIAN");
+		install_dir("$tmp/DEBIAN");
 	}
 
 	# Check if we should exclude conffiles.
@@ -82,8 +84,24 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 		doit("rm","-f","$tmp/DEBIAN/md5sums");
 	}
 	else {
-		doit("chmod",644,"$tmp/DEBIAN/md5sums");
-		doit("chown","0:0","$tmp/DEBIAN/md5sums");
+		doit("chmod", "0644", "$tmp/DEBIAN/md5sums");
+		doit("chown", "0:0", "$tmp/DEBIAN/md5sums");
+	}
+	if ( -d $ddeb_tmp) {
+		if (! -d "${ddeb_tmp}/DEBIAN") {
+			install_dir("${ddeb_tmp}/DEBIAN");
+		}
+
+		$find = "find . -type f ! -regex './DEBIAN/.*' -printf '%P\\0'";
+		complex_doit("(cd $ddeb_tmp >/dev/null ; $find | LC_ALL=C sort -z | xargs -r0 md5sum > DEBIAN/md5sums) >/dev/null");
+		# If the file's empty, no reason to waste inodes on it.
+		if (-z "${ddeb_tmp}/DEBIAN/md5sums") {
+			doit('rm', '-f', "${ddeb_tmp}/DEBIAN/md5sums");
+		}
+		else {
+			doit('chmod', '0644', "${ddeb_tmp}/DEBIAN/md5sums");
+			doit('chown', '0:0', "${ddeb_tmp}/DEBIAN/md5sums");
+		}
 	}
 }
 
@@ -98,3 +116,9 @@ This program is a part of debhelper.
 Joey Hess <joeyh@debian.org>
 
 =cut
+
+# Local Variables:
+# indent-tabs-mode: t
+# tab-width: 4
+# cperl-indent-level: 4
+# End:

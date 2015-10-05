@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 
 =head1 NAME
 
@@ -7,6 +7,7 @@ dh_installpam - install pam support files
 =cut
 
 use strict;
+use warnings;
 use Debian::Debhelper::Dh_Lib;
 
 =head1 SYNOPSIS
@@ -49,12 +50,12 @@ init();
 foreach my $package (@{$dh{DOPACKAGES}}) {
 	my $tmp=tmpdir($package);
 	my $pam=pkgfile($package,"pam");
-	
+
 	if ($pam ne '') {
 		if (! -d "$tmp/etc/pam.d") {
-			doit("install","-d","$tmp/etc/pam.d");
+			install_dir("$tmp/etc/pam.d");
 		}
-		doit("install","-p","-m644",$pam,"$tmp/etc/pam.d/".pkgfilename($package));
+		install_file($pam,"$tmp/etc/pam.d/".pkgfilename($package));
 	}
 }
 
@@ -69,3 +70,9 @@ This program is a part of debhelper.
 Joey Hess <joeyh@debian.org>
 
 =cut
+
+# Local Variables:
+# indent-tabs-mode: t
+# tab-width: 4
+# cperl-indent-level: 4
+# End:

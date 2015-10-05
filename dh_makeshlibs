@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 
 =head1 NAME
 
@@ -7,6 +7,7 @@ dh_makeshlibs - automatically create shlibs file and call dpkg-gensymbols
 =cut
 
 use strict;
+use warnings;
 use Debian::Debhelper::Dh_Lib;
 
 =head1 SYNOPSIS
@@ -21,14 +22,18 @@ libraries, and generates a shlibs file for the libraries it finds.
 It also adds a call to ldconfig in the F<postinst> and F<postrm> scripts (in
 v3 mode and above only) to any packages in which it finds shared libraries.
 
-Packages that support multiarch are detected, and
-a Pre-Dependency on multiarch-support is set in ${misc:Pre-Depends} ;
-you should make sure to put that token into an appropriate place in your
-debian/control file for packages supporting multiarch.
-
 =head1 FILES
 
 =over 4
+
+=item debian/I<package>.shlibs
+
+Installs this file, if present, into the package as DEBIAN/shlibs.  If
+omitted, debhelper will generate a shlibs file automatically if it
+detects any libraries.
+
+Note in compat levels 9 and earlier, this file was installed by
+L<dh_installdeb(1)> rather than B<dh_makeshlibs>.
 
 =item debian/I<package>.symbols
 
@@ -127,7 +132,6 @@ init(options => {
 });
 
 my $objdump=cross_command("objdump");
-my $multiarch=dpkg_architecture_value("DEB_HOST_MULTIARCH");
 
 my $ok=1;
 
@@ -138,7 +142,7 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 
 	my %seen;
 	my $need_ldconfig = 0;
-	my $is_multiarch = 0;
+	my $shlibs_file = pkgfile($package, 'shlibs');
 
 	doit("rm", "-f", "$tmp/DEBIAN/shlibs");
 
@@ -153,13 +157,10 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 	if (defined($dh{EXCLUDE_FIND}) && $dh{EXCLUDE_FIND} ne '') {
 		$exclude="! \\( $dh{EXCLUDE_FIND} \\) ";
 	}
-	open (FIND, "find $tmp -type f \\( -name '*.so' -or -name '*.so.*' \\) $exclude |");
+	open (FIND, "find $tmp -type f \\( -name '*.so' -or -name '*.so.*' \\) $exclude | LC_ALL=C sort |");
 	while (<FIND>) {
 		my ($library, $major);
 		push @lib_files, $_;
-		if (defined $multiarch && $multiarch ne '' && m,/$multiarch/,) {
-			$is_multiarch=1;
-		}
 		my $ret=`$objdump -p $_`;
 		if ($ret=~m/\s+SONAME\s+(.+)\.so\.(.+)/) {
 			# proper soname format
@@ -177,10 +178,17 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 		}
 		
 		if (! -d "$tmp/DEBIAN") {
-			doit("install","-d","$tmp/DEBIAN");
+			install_dir("$tmp/DEBIAN");
 		}
 		my $deps=$package;
 		if ($dh{V_FLAG_SET}) {
+			if ($shlibs_file) {
+				warning("The provided ${shlibs_file} file overwrites -V");
+				# Clear the flag to avoid duplicate warnings.  Note
+				# we can safely fallthrough as the result will be
+				# replaced regardless.
+				$dh{V_FLAG_SET} = 0;
+			}
 			if ($dh{V_FLAG} ne '') {
 				$deps=$dh{V_FLAG};
 			}	
@@ -224,12 +232,24 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 
 	# New as of dh_v3.
 	if (! compat(2) && ! $dh{NOSCRIPTS} && $need_ldconfig) {
-		autoscript($package,"postinst","postinst-makeshlibs");
-		autoscript($package,"postrm","postrm-makeshlibs");
+		if (compat(9)) {
+			autoscript($package,"postinst","postinst-makeshlibs");
+			autoscript($package,"postrm","postrm-makeshlibs");
+		} else {
+			autoscript($package,"postinst","postinst-makeshlibs-c10");
+			autoscript($package,"postrm","postrm-makeshlibs-c10");
+		}
+	}
+
+	if ($shlibs_file) {
+		if (! -d "$tmp/DEBIAN") {
+			install_dir("$tmp/DEBIAN");
+		}
+		install_file($shlibs_file, "$tmp/DEBIAN/shlibs");
 	}
 
 	if (-e "$tmp/DEBIAN/shlibs") {
-		doit("chmod",644,"$tmp/DEBIAN/shlibs");
+		doit("chmod","0644","$tmp/DEBIAN/shlibs");
 		doit("chown","0:0","$tmp/DEBIAN/shlibs");
 	}
 
@@ -244,16 +264,18 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 		# own search for symbols files, since that search
 		# is not 100% compatible with debhelper. (For example,
 		# this supports --ignore being used.)
-		$ok = $ok && doit_noerror("dpkg-gensymbols",
-			"-p$package", "-I$symbols", "-P$tmp",
-			@liblist,
-			@{$dh{U_PARAMS}});
-		if (-s "$tmp/DEBIAN/symbols" == 0) {
+		$ok = doit_noerror(
+				"dpkg-gensymbols",
+				"-p$package",
+				"-I$symbols",
+				"-P$tmp",
+				@liblist,
+				@{$dh{U_PARAMS}}
+			) && $ok;
+
+		if (-f "$tmp/DEBIAN/symbols" and -s _ == 0) {
 			doit("rm", "-f", "$tmp/DEBIAN/symbols");
 		}
-	}
-	if ($is_multiarch) {
-		addsubstvar($package, "misc:Pre-Depends", "multiarch-support");
 	}
 }
 
@@ -272,3 +294,9 @@ This program is a part of debhelper.
 Joey Hess <joeyh@debian.org>
 
 =cut
+
+# Local Variables:
+# indent-tabs-mode: t
+# tab-width: 4
+# cperl-indent-level: 4
+# End:

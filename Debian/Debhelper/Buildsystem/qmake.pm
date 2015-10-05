@@ -9,7 +9,7 @@ package Debian::Debhelper::Buildsystem::qmake;
 use strict;
 use warnings;
 use Debian::Debhelper::Dh_Lib qw(error);
-use base 'Debian::Debhelper::Buildsystem::makefile';
+use parent qw(Debian::Debhelper::Buildsystem::makefile);
 
 our $qmake="qmake";
 
@@ -81,3 +81,9 @@ sub install {
 }
 
 1
+
+# Local Variables:
+# indent-tabs-mode: t
+# tab-width: 4
+# cperl-indent-level: 4
+# End:

@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 
 =head1 NAME
 
@@ -7,6 +7,7 @@ dh_install - install files into package build directories
 =cut
 
 use strict;
+use warnings;
 use File::Find;
 use Debian::Debhelper::Dh_Lib;
 
@@ -192,10 +193,10 @@ foreach my $package (getpackages()) {
 				$dest=dirname("/".$dest);
 				$tmpdest=1;
 			}
-			
+
 			# Make sure the destination directory exists.
 			if (! -e "$tmp/$dest") {
-				doit("install","-d","$tmp/$dest");
+				install_dir("$tmp/$dest");
 			}
 			
 			if (-d $src && $exclude) {
@@ -203,13 +204,15 @@ foreach my $package (getpackages()) {
 				my $dir = ($basename eq '.') ? $src : "$src/..";
 				my $pwd=`pwd`;
 				chomp $pwd;
-				complex_doit("cd '$dir' && find '$basename' $exclude \\( -type f -or -type l \\) -print0 | xargs -0 -I {} cp --parents -dp {} $pwd/$tmp/$dest/");
+				complex_doit("cd '$dir' && " .
+							 "find '$basename' $exclude \\( -type f -or -type l \\) -print0 | xargs -0 -I {} cp --reflink=auto --parents -dp {} $pwd/$tmp/$dest/");
 				# cp is annoying so I need a separate pass
 				# just for empty directories
-				complex_doit("cd '$dir' && find '$basename' $exclude \\( -type d -and -empty \\) -print0 | xargs -0 -I {} cp --parents -a {} $pwd/$tmp/$dest/");
+				complex_doit("cd '$dir' && " .
+							 "find '$basename' $exclude \\( -type d -and -empty \\) -print0 | xargs -0 -I {} cp --reflink=auto --parents -a {} $pwd/$tmp/$dest/");
 			}
 			else {
-				doit("cp", "-a", $src, "$tmp/$dest/");
+				doit("cp", '--reflink=auto', "-a", $src, "$tmp/$dest/");
 			}
 
 			if ($tmpdest) {
@@ -256,6 +259,25 @@ if ($dh{LIST_MISSING} || $dh{FAIL_MISSING}) {
 B<dh_install> cannot rename files or directories, it can only install them
 with the names they already have into wherever you want in the package
 build tree.
+
+However, renaming can be achieved by using B<dh-exec> with compatibility level 9 or
+later.  An example debian/I<package>.install file using B<dh-exec>
+could look like:
+
+ #!/usr/bin/dh-exec
+ debian/default.conf => /etc/my-package/start.conf
+
+Please remember the following three things:
+
+=over 4
+
+=item * The package must be using compatibility level 9 or later (see L<debhelper(7)>)
+
+=item * The package will need a build-dependency on dh-exec.
+
+=item * The install file must be marked as executable.
+
+=back
   
 =head1 SEE ALSO
 
@@ -268,3 +290,9 @@ This program is a part of debhelper.
 Joey Hess <joeyh@debian.org>
 
 =cut
+
+# Local Variables:
+# indent-tabs-mode: t
+# tab-width: 4
+# cperl-indent-level: 4
+# End:

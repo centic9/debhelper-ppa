@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 
 =head1 NAME
 
@@ -7,6 +7,7 @@ dh_auto_test - automatically runs a package's test suites
 =cut
 
 use strict;
+use warnings;
 use Debian::Debhelper::Dh_Lib;
 use Debian::Debhelper::Dh_Buildsystems;
 
@@ -52,8 +53,7 @@ compiled.
 
 =cut
 
-if (get_buildoption("nocheck")
-    || (dpkg_architecture_value("DEB_HOST_GNU_TYPE") ne dpkg_architecture_value("DEB_BUILD_GNU_TYPE"))) {
+if (get_buildoption("nocheck")) {
 	exit 0;
 }
 
@@ -71,3 +71,9 @@ This program is a part of debhelper.
 Joey Hess <joeyh@debian.org>
 
 =cut
+
+# Local Variables:
+# indent-tabs-mode: t
+# tab-width: 4
+# cperl-indent-level: 4
+# End:

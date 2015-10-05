@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 
 =head1 NAME
 
@@ -7,6 +7,7 @@ dh_icons - Update caches of Freedesktop icons
 =cut
 
 use strict;
+use warnings;
 use File::Find;
 use Debian::Debhelper::Dh_Lib;
 
@@ -61,7 +62,7 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 			push @dirlist, "$baseicondir/$subdir" if $needs_cache;
 		}
 		if (@dirlist and ! $dh{NOSCRIPTS}) {
-			my $list=join(" ", @dirlist);
+			my $list=join(" ", sort @dirlist);
 			autoscript($package,"postinst","postinst-icons","s%#DIRLIST#%$list%");
 			autoscript($package,"postrm","postrm-icons","s%#DIRLIST#%$list%");
 		}
@@ -81,3 +82,9 @@ Jordi Mallach <jordi@debian.org>
 Josselin Mouette <joss@debian.org>
 
 =cut
+
+# Local Variables:
+# indent-tabs-mode: t
+# tab-width: 4
+# cperl-indent-level: 4
+# End:

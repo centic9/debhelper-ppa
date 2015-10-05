@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 
 =head1 NAME
 
@@ -7,6 +7,7 @@ dh_installifupdown - install if-up and if-down hooks
 =cut
 
 use strict;
+use warnings;
 use Debian::Debhelper::Dh_Lib;
 
 =head1 SYNOPSIS
@@ -56,14 +57,14 @@ init();
 
 foreach my $package (@{$dh{DOPACKAGES}}) {
 	my $tmp=tmpdir($package);
-	
+
 	foreach my $script (qw(pre-up up down post-down)) {
 		my $file=pkgfile($package, "if-$script");
 		if ($file ne '') {
 			if (! -d "$tmp/etc/network/if-$script.d") {
-				doit("install","-d","$tmp/etc/network/if-$script.d");
+				install_dir("$tmp/etc/network/if-$script.d");
 			}
-			doit("install","-p","-m755",$file,"$tmp/etc/network/if-$script.d/".pkgfilename($package));
+			install_prog($file,"$tmp/etc/network/if-$script.d/".pkgfilename($package));
 		}
 	}
 }
@@ -79,3 +80,9 @@ This program is a part of debhelper.
 Joey Hess <joeyh@debian.org>
 
 =cut
+
+# Local Variables:
+# indent-tabs-mode: t
+# tab-width: 4
+# cperl-indent-level: 4
+# End:

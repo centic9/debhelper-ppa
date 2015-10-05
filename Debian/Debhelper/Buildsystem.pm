@@ -294,37 +294,73 @@ sub _cd {
 }
 
 # Changes working directory to the source directory (if needed),
-# calls doit(@_) and changes working directory back to the top
-# directory.
+# calls print_and_doit(@_) and changes working directory back to the
+# top directory.
 sub doit_in_sourcedir {
 	my $this=shift;
 	if ($this->get_sourcedir() ne '.') {
 		my $sourcedir = $this->get_sourcedir();
 		$this->_cd($sourcedir);
-		doit(@_);
+		print_and_doit(@_);
 		$this->_cd($this->_rel2rel($this->{cwd}, $sourcedir));
 	}
 	else {
-		doit(@_);
+		print_and_doit(@_);
 	}
 	return 1;
 }
 
+# Changes working directory to the source directory (if needed),
+# calls print_and_doit(@_) and changes working directory back to the
+# top directory. Errors are ignored.
+sub doit_in_sourcedir_noerror {
+        my $this=shift;
+        my $ret;
+        if ($this->get_sourcedir() ne '.') {
+                my $sourcedir = $this->get_sourcedir();
+                $this->_cd($sourcedir);
+                $ret = print_and_doit_noerror(@_);
+                $this->_cd($this->_rel2rel($this->{cwd}, $sourcedir));
+        }
+        else {
+                $ret = print_and_doit_noerror(@_);
+        }
+        return $ret;
+}
+
 # Changes working directory to the build directory (if needed),
-# calls doit(@_) and changes working directory back to the top
-# directory.
+# calls print_and_doit(@_) and changes working directory back to the
+# top directory.
 sub doit_in_builddir {
 	my $this=shift;
 	if ($this->get_buildpath() ne '.') {
 		my $buildpath = $this->get_buildpath();
 		$this->_cd($buildpath);
-		doit(@_);
+		print_and_doit(@_);
 		$this->_cd($this->_rel2rel($this->{cwd}, $buildpath));
 	}
 	else {
-		doit(@_);
+		print_and_doit(@_);
 	}
 	return 1;
+}
+
+# Changes working directory to the build directory (if needed),
+# calls print_and_doit(@_) and changes working directory back to the
+# top directory. Errors are ignored.
+sub doit_in_builddir_noerror {
+        my $this=shift;
+        my $ret;
+        if ($this->get_buildpath() ne '.') {
+                my $buildpath = $this->get_buildpath();
+                $this->_cd($buildpath);
+                $ret = print_and_doit_noerror(@_);
+                $this->_cd($this->_rel2rel($this->{cwd}, $buildpath));
+        }
+        else {
+                $ret = print_and_doit_noerror(@_);
+        }
+        return $ret;
 }
 
 # In case of out of source tree building, whole build directory
@@ -413,3 +449,9 @@ sub clean {
 }
 
 1
+
+# Local Variables:
+# indent-tabs-mode: t
+# tab-width: 4
+# cperl-indent-level: 4
+# End:

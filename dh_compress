@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 
 =head1 NAME
 
@@ -7,6 +7,7 @@ dh_compress - compress files and fix symlinks in package build directories
 =cut
 
 use strict;
+use warnings;
 use Cwd;
 use Debian::Debhelper::Dh_Lib;
 
@@ -112,8 +113,9 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 				2>/dev/null || true;
 			find usr/share/doc \\
 				\\( -type d -name _sources -prune -false \\) -o \\
-				-type f \\( -size +4k -or -name "changelog*" -or -name "NEWS*" \\) \\
-				\\( -name changelog.html -or ! -iname "*.htm*" \\) \\
+				-type f \\( -size +4k -o -name "changelog*" -o -name "NEWS*" \\) \\
+				\\( -name changelog.html -o ! -iname "*.htm*" \\) \\
+				! -iname "*.xhtml" \\
 				! -iname "*.gif" ! -iname "*.png" ! -iname "*.jpg" \\
 				! -iname "*.jpeg" ! -iname "*.gz" ! -iname "*.taz" \\
 				! -iname "*.tgz" ! -iname "*.z" ! -iname "*.bz2" \\
@@ -121,6 +123,7 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 				! -iname "*.epub" ! -iname "*.jar" ! -iname "*.zip" \\
 				! -iname "*.odg" ! -iname "*.odp" ! -iname "*.odt" \\
 				! -iname ".htaccess" ! -iname "*.css" \\
+				! -iname "*.xz" ! -iname "*.lz" ! -iname "*.lzma" \\
 				! -iname "*.svg" ! -iname "*.svgz" ! -iname "*.js" \\
 				! -name "index.sgml" ! -name "objects.inv" ! -name "*.map" \\
 				! -name "copyright" 2>/dev/null || true;
@@ -218,3 +221,9 @@ This program is a part of debhelper.
 Joey Hess <joeyh@debian.org>
 
 =cut
+
+# Local Variables:
+# indent-tabs-mode: t
+# tab-width: 4
+# cperl-indent-level: 4
+# End:

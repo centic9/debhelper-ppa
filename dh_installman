@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 
 =head1 NAME
 
@@ -7,6 +7,7 @@ dh_installman - install man pages into package build directories
 =cut
 
 use strict;
+use warnings;
 use File::Find;
 use Debian::Debhelper::Dh_Lib;
 
@@ -177,13 +178,13 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 		next if compat(5) && -e $instpage;
 
 		if (! -d $destdir) {
-			doit "install","-d",$destdir;
+			install_dir($destdir);
 		}
 		if ($gz) {
 			complex_doit "zcat \Q$page\E > \Q$instpage\E";
 		}
 		else {
-			doit "install","-p","-m644",$page,$instpage;
+			install_file($page, $instpage);
 		}
 	}
 
@@ -271,3 +272,9 @@ This program is a part of debhelper.
 Joey Hess <joeyh@debian.org>
 
 =cut
+
+# Local Variables:
+# indent-tabs-mode: t
+# tab-width: 4
+# cperl-indent-level: 4
+# End:

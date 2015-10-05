@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 
 =head1 NAME
 
@@ -7,6 +7,7 @@ dh_installinit - install service init files into package build directories
 =cut
 
 use strict;
+use warnings;
 use Debian::Debhelper::Dh_Lib;
 use File::Find;
 
@@ -129,6 +130,10 @@ preference to the files it normally installs.
 This parameter is deprecated, use the B<--name> parameter instead. This
 parameter is incompatible with the use of upstart jobs.
 
+=item B<--upstart-only>
+
+Deprecated option, ignored for compatibility.
+
 =item B<--error-handler=>I<function>
 
 Call the named shell I<function> if running the init script fails. The
@@ -153,6 +158,7 @@ init(options => {
 	"init-script=s" => \$dh{INIT_SCRIPT},
 	"update-rcd-params=s", => \$dh{U_PARAMS},
 	"remove-d" => \$dh{D_FLAG},
+	"upstart-only" => \$dh{UPSTART_ONLY},
 });
 
 # PROMISE: DH NOOP WITHOUT service tmpfile default upstart init init.d
@@ -197,38 +203,40 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 	my $service=pkgfile($package,"service");
 	if ($service ne '' && ! $dh{ONLYSCRIPTS}) {
 		my $path="$tmp/lib/systemd/system";
-		if (! -d "$path") {
-			doit("install","-d","$path");
+		if (! -d $path) {
+			install_dir($path);
 		}
 
-		doit("install","-p","-m644",$service,"$path/$script.service");
+		install_file($service, "$path/$script.service");
 	}
 
 	my $tmpfile=pkgfile($package,"tmpfile");
 	if ($tmpfile ne '' && ! $dh{ONLYSCRIPTS}) {
 		my $path="$tmp/usr/lib/tmpfiles.d";
-		if (! -d "$path") {
-			doit("install","-d","$path");
+		if (! -d $path) {
+			install_dir($path);
 		}
 
-		doit("install","-p","-m644",$tmpfile,"$path/$script.conf");
+		install_file($tmpfile, "$path/$script.conf");
 	}
 
 	my $job=pkgfile($package,"upstart");
 	if ($job ne '' && ! $dh{ONLYSCRIPTS}) {
 		if (! -d "$tmp/etc/init") {
-			doit("install","-d","$tmp/etc/init");
+			install_dir("$tmp/etc/init");
 		}
 		
-		doit("install","-p","-m644",$job,"$tmp/etc/init/$jobfile.conf");
+		install_file($job, "$tmp/etc/init/$jobfile.conf");
+		# Add dependency on lsb-base that provides the upstart lsb-hook
+		addsubstvar($package, "misc:Depends", "lsb-base", ">= 4.1+Debian11ubuntu7");
 	}
 
 	my $default=pkgfile($package,'default');
 	if ($default ne '' && ! $dh{ONLYSCRIPTS}) {
 		if (! -d "$tmp/etc/default") {
-			doit("install","-d","$tmp/etc/default");
+			install_dir("$tmp/etc/default");
 		}
-		doit("install","-p","-m644",$default,"$tmp/etc/default/$script");
+		install_file($default, "$tmp/etc/default/$script");
 	}
 
 	my $init=pkgfile($package,$scriptsrc) || pkgfile($package,"init") ||
@@ -236,10 +244,10 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 
 	if ($init ne '' && ! $dh{ONLYSCRIPTS}) {
 		if (! -d "$tmp/etc/init.d") {
-			doit("install","-d","$tmp/etc/init.d");
+			install_dir("$tmp/etc/init.d");
 		}
 		
-		doit("install","-p","-m755",$init,"$tmp/etc/init.d/$script");
+		install_prog($init,"$tmp/etc/init.d/$script");
 	}
 
 	if ($dh{INIT_SCRIPT} && $job ne '' && $init ne '') {
@@ -289,34 +297,41 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 					# update-rc.d, and restart (or
 					# start if new install) script
 					autoscript($package,"postinst", "postinst-init-restart",
-						"s/#SCRIPT#/$script/;s/#INITPARMS#/$params/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
+						"s/#SCRIPT#/$script/g;s/#INITPARMS#/$params/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
 				}
 				else {
 					# update-rc.d, and start script
 					autoscript($package,"postinst", "postinst-init",
-						"s/#SCRIPT#/$script/;s/#INITPARMS#/$params/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
+						"s/#SCRIPT#/$script/g;s/#INITPARMS#/$params/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
 				}
 			
 				if ($dh{R_FLAG} || $dh{RESTART_AFTER_UPGRADE}) {
 					# stops script only on remove
 					autoscript($package,"prerm","prerm-init-norestart",
-						"s/#SCRIPT#/$script/;s/#INITPARMS#/$params/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
+						"s/#SCRIPT#/$script/g;s/#INITPARMS#/$params/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
 				}
 				else {
 					# always stops script
 					autoscript($package,"prerm","prerm-init",
-						"s/#SCRIPT#/$script/;s/#INITPARMS#/$params/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
+						"s/#SCRIPT#/$script/g;s/#INITPARMS#/$params/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
 				}
 			}
 			else {
 				# just update-rc.d
 				autoscript($package,"postinst", "postinst-init-nostart",
-					"s/#SCRIPT#/$script/;s/#INITPARMS#/$params/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
+					"s/#SCRIPT#/$script/g;s/#INITPARMS#/$params/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
 			}
 
-			# removes rc.d links
-			autoscript($package,"postrm","postrm-init",
-				"s/#SCRIPT#/$script/;s/#INITPARMS#/$params/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
+			if ($job ne '') {
+				$script=$jobfile;
+				autoscript($package,"preinst", "preinst-upstart-compatibility",
+					"s!#OLD#!/etc/init.d/$script!g;s!#PACKAGE#!$package!g");
+			}
+			if ($init ne '') {
+				# removes rc.d links
+				autoscript($package,"postrm","postrm-init",
+					"s/#SCRIPT#/$script/g;s/#INITPARMS#/$params/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
+			}
 		}
 	}
 }
@@ -335,4 +350,12 @@ Steve Langasek <steve.langasek@canonical.com>
 
 Michael Stapelberg <stapelberg@debian.org>
 
+Scott James Remnant <scott@canonical.com>
+
 =cut
+
+# Local Variables:
+# indent-tabs-mode: t
+# tab-width: 4
+# cperl-indent-level: 4
+# End:

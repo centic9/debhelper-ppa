@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 
 =head1 NAME
 
@@ -7,6 +7,7 @@ dh_installexamples - install example files into package build directories
 =cut
 
 use strict;
+use warnings;
 use Debian::Debhelper::Dh_Lib;
 
 =head1 SYNOPSIS
@@ -80,7 +81,7 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 	
 	if (@examples) {
 		if (! -d "$tmp/usr/share/doc/$package/examples") {
-			doit("install","-d","$tmp/usr/share/doc/$package/examples");
+			install_dir("$tmp/usr/share/doc/$package/examples");
 		}
 		
 		my $exclude = '';
@@ -96,10 +97,11 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 				my $pwd=`pwd`;
 				chomp $pwd;
 				my $exclude2 = '-type f'.$exclude;
-				complex_doit("cd '$dir' && find '$basename' -type f$exclude -exec cp --parents -dp {} $pwd/$tmp/usr/share/doc/$package/examples \\;");
+				complex_doit("cd '$dir' && find '$basename' -type f$exclude -exec cp --reflink=auto --parents -dp {} $pwd/$tmp/usr/share/doc/$package/examples \\;");
 			}
 			else {
-				doit("cp", "-a", $example, "$tmp/usr/share/doc/$package/examples");
+				doit("cp", '--reflink=auto', "-a", $example,
+					 "$tmp/usr/share/doc/$package/examples");
 			}
 		}
 	}
@@ -116,3 +118,9 @@ This program is a part of debhelper.
 Joey Hess <joeyh@debian.org>
 
 =cut
+
+# Local Variables:
+# indent-tabs-mode: t
+# tab-width: 4
+# cperl-indent-level: 4
+# End:

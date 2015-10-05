@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 
 =head1 NAME
 
@@ -7,6 +7,7 @@ dh_movefiles - move files out of debian/tmp into subpackages
 =cut
 
 use strict;
+use warnings;
 use Debian::Debhelper::Dh_Lib;
 
 =head1 SYNOPSIS
@@ -95,7 +96,7 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 		error("$sourcedir does not exist.");
 	}
 
-	my @tomove;
+	my (@tomove, @tomove_expanded);
 
         # debian/files has a different purpose, so ignore it.
 	if ($files && $files ne "debian/files" ) {
@@ -103,10 +104,16 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 	}
 	
 	if (($package eq $dh{FIRSTPACKAGE} || $dh{PARAMS_ALL}) && @ARGV) {
-		push @tomove, @ARGV;
+		if (compat(2)) {
+			# Pass-throu as-is and it will be expanded below
+			push(@tomove, @ARGV);
+		} else {
+			# Expand these manually as filearray already
+			push(@tomove_expanded, map { glob("$sourcedir/$_") } @ARGV);
+		}
 	}
 
-	if (@tomove && $tmp eq $sourcedir) {
+	if ((@tomove || @tomove_expanded) && $tmp eq $sourcedir) {
 		error("I was asked to move files from $sourcedir to $sourcedir. Perhaps you should set DH_COMPAT=2?");
 	}
 
@@ -126,9 +133,11 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 		@tomove = map { "$sourcedir/$_" } @tomove;
 	}
 
+	push(@tomove, @tomove_expanded);
+
 	if (@tomove) {
 		if (! -d $tmp) {
-			doit("install","-d",$tmp);
+			install_dir($tmp);
 		}
 
 		doit("rm","-f","debian/movelist");
@@ -178,3 +187,9 @@ This program is a part of debhelper.
 Joey Hess <joeyh@debian.org>
 
 =cut
+
+# Local Variables:
+# indent-tabs-mode: t
+# tab-width: 4
+# cperl-indent-level: 4
+# End:

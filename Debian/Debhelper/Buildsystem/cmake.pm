@@ -7,8 +7,9 @@
 package Debian::Debhelper::Buildsystem::cmake;
 
 use strict;
+use warnings;
 use Debian::Debhelper::Dh_Lib qw(compat);
-use base 'Debian::Debhelper::Buildsystem::makefile';
+use parent qw(Debian::Debhelper::Buildsystem::makefile);
 
 sub DESCRIPTION {
 	"CMake (CMakeLists.txt)"
@@ -75,3 +76,9 @@ sub test {
 }
 
 1
+
+# Local Variables:
+# indent-tabs-mode: t
+# tab-width: 4
+# cperl-indent-level: 4
+# End:

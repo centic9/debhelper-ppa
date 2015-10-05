@@ -7,8 +7,9 @@
 package Debian::Debhelper::Buildsystem::autoconf;
 
 use strict;
+use warnings;
 use Debian::Debhelper::Dh_Lib qw(dpkg_architecture_value sourcepackage compat);
-use base 'Debian::Debhelper::Buildsystem::makefile';
+use parent qw(Debian::Debhelper::Buildsystem::makefile);
 
 sub DESCRIPTION {
 	"GNU Autoconf (configure)"
@@ -37,7 +38,9 @@ sub configure {
 	push @opts, "--infodir=\${prefix}/share/info";
 	push @opts, "--sysconfdir=/etc";
 	push @opts, "--localstatedir=/var";
-	if (defined $ENV{DH_VERBOSE} && $ENV{DH_VERBOSE} ne "") {
+	if (defined $ENV{DH_QUIET} && $ENV{DH_QUIET} ne "") {
+		push @opts, "--enable-silent-rules";
+	} else {
 		push @opts, "--disable-silent-rules";
 	}
 	my $multiarch=dpkg_architecture_value("DEB_HOST_MULTIARCH");
@@ -76,3 +79,9 @@ sub configure {
 }
 
 1
+
+# Local Variables:
+# indent-tabs-mode: t
+# tab-width: 4
+# cperl-indent-level: 4
+# End:
