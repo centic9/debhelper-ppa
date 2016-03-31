@@ -47,10 +47,11 @@ things to exclude.
 
 B<This option is a now special purpose option that you normally do not
 need>.  In most cases, there should be little reason to use this
-option for new source packages as debhelper generates automatic debug
-packages ("ddebs").  B<If you have a manual --dbg-package> that you
-want to migrate to the automatic ddeb, please see the
-B<--ddeb-migration> option.
+option for new source packages as debhelper automatically generates
+debug packages ("dbgsym packages").  B<If you have a manual
+--dbg-package> that you want to replace with an automatically
+generated debug symbol package, please see the B<--dbgsym-migration>
+option.
 
 Causes B<dh_strip> to save debug symbols stripped from the packages it acts on
 as independent files in the package build directory of the specified debugging
@@ -65,51 +66,70 @@ package to put symbols in, it specifies a package (or packages) which
 should have separated debug symbols, and the separated symbols are placed
 in packages with B<-dbg> added to their name.
 
-This option implies B<--no-ddebs> and I<cannot> be used with B<--ddeb>
-or B<--ddeb-migration>.
+This option implies B<--no-automatic-dbgsym> and I<cannot> be used
+with B<--automatic-dbgsym> or B<--dbgsym-migration>.
 
 =item B<-k>, B<--keep-debug>
+
+B<This option is a now special purpose option that you normally do not
+need>.  In most cases, there should be little reason to use this
+option for new source packages as debhelper automatically generates
+debug packages ("dbgsym packages").  B<If you have a manual
+--dbg-package> that you want to replace with an automatically
+generated debug symbol package, please see the B<--dbgsym-migration>
+option.
 
 Debug symbols will be retained, but split into an independent
 file in F<usr/lib/debug/> in the package build directory. B<--dbg-package>
 is easier to use than this option, but this option is more flexible.
 
-This option implies B<--no-ddebs> and I<cannot> be used with
-B<--ddebs>.
+This option implies B<--no-automatic-dbgsym> and I<cannot> be used
+with B<--automatic-dbgsym>.
 
-=item B<--ddeb-migration=>I<package-relation>
+=item B<--dbgsym-migration=>I<package-relation>
 
 This option is used to migrate from a manual "-dbg" package (created
-with B<--dbg-package>) to the automatic "ddebs".  The value of this
-option should describe a valid B<Replaces>- and B<Breaks>-relation,
-which will be added to the ddebs to avoid file conflicts with the (now
-obsolete) -dbg package.
+with B<--dbg-package>) to an automatic generated debug symbol
+package. This option should describe a valid B<Replaces>- and
+B<Breaks>-relation, which will be added to the debug symbol package to
+avoid file conflicts with the (now obsolete) -dbg package.
 
-This option implies B<--ddebs> and I<cannot> be used with
-B<--keep-debug>, B<--dbg-package> or B<--no-ddebs>.
+This option implies B<--automatic-dbgsym> and I<cannot> be used with
+B<--keep-debug>, B<--dbg-package> or B<--no-automatic-dbgsym>.
 
 Examples:
 
-  dh_strip --ddeb-migration='libfoo-dbg (<< 2.1-3~)'
+  dh_strip --dbgsym-migration='libfoo-dbg (<< 2.1-3~)'
 
-  dh_strip --ddeb-migration='libfoo-tools-dbg (<< 2.1-3~), libfoo2-dbg (<< 2.1-3~)'
+  dh_strip --dbgsym-migration='libfoo-tools-dbg (<< 2.1-3~), libfoo2-dbg (<< 2.1-3~)'
+
+=item B<--automatic-dbgsym>, B<--no-automatic-dbgsym>
+
+Control whether B<dh_strip> should be creating debug symbol packages
+when possible.
+
+The default is to create debug symbol packages.
 
 =item B<--ddebs>, B<--no-ddebs>
 
-Control whether B<dh_strip> should be creating ddebs when possible.
-By default, B<dh_strip> will attempt to build ddebs and this option is
-primarily useful for disabling this.
+Historical name for B<--automatic-dbgsym> and B<--no-automatic-dbgsym>.
+
+=item B<--ddeb-migration=>I<package-relation>
+
+Historical name for B<--dbgsym-migration>.
 
 =back
 
 =head1 NOTES
 
-If the B<DEB_BUILD_OPTIONS> environment variable contains B<nostrip>, nothing
-will be stripped, in accordance with Debian policy (section 10.1
-"Binaries").  This will also inhibit the creation of automatic "ddebs".
+If the B<DEB_BUILD_OPTIONS> environment variable contains B<nostrip>,
+nothing will be stripped, in accordance with Debian policy (section
+10.1 "Binaries").  This will also inhibit the automatic creation of
+debug symbol packages.
 
-The creation of automatic "ddebs" can also be prevented by adding
-B<noddebs> to the B<DEB_BUILD_OPTIONS> environment variable.
+The automatic creation of debug symbol packages can also be prevented
+by adding B<noautodbgsym> to the B<DEB_BUILD_OPTIONS> environment
+variable.
 
 =head1 CONFORMS TO
 
@@ -118,34 +138,38 @@ Debian policy, version 3.0.1
 =cut
 
 init(options => {
-	"keep-debug"       => \$dh{K_FLAG},
-	'ddeb-migration=s' => \$dh{MIGRATE_DDEB},
-	'ddebs!'           => \$dh{ENABLE_DDEBS},
+	"keep-debug"         => \$dh{K_FLAG},
+	'dbgsym-migration=s' => \$dh{MIGRATE_DBGSYM},
+	'automatic-dbgsym!'  => \$dh{ENABLE_DBGSYM},
+    # Deprecated variants
+	'ddeb-migration=s'   => \$dh{MIGRATE_DBGSYM},
+	'ddebs!'             => \$dh{ENABLE_DBGSYM},
+
 });
 
-if ($dh{K_FLAG} and $dh{MIGRATE_DDEB}) {
-	error("--keep-debug and --ddeb-migration are mutually exclusive");
+if ($dh{K_FLAG} and $dh{MIGRATE_DBGSYM}) {
+	error("--keep-debug and --dbgsym-migration are mutually exclusive");
 }
-if ($dh{DEBUGPACKAGES} and $dh{MIGRATE_DDEB}) {
-	error("--dbg-package and --ddeb-migration are mutually exclusive");
+if ($dh{DEBUGPACKAGES} and $dh{MIGRATE_DBGSYM}) {
+	error("--dbg-package and --dbgsym-migration are mutually exclusive");
 }
 
-if ($dh{ENABLE_DDEBS} and $dh{ENABLE_DDEBS} ne 'auto') {
+if ($dh{ENABLE_DBGSYM} and $dh{ENABLE_DBGSYM} ne 'auto') {
 	if ($dh{K_FLAG}) {
-		error("--keep-debug and explicit --ddebs are mutually exclusive");
+		error("--keep-debug and explicit --automatic-dbgsym are mutually exclusive");
 	}
 	if ($dh{DEBUGPACKAGES}) {
-		error("--dbg-package and explicit --ddebs are mutually exclusive");
+		error("--dbg-package and explicit --automatic-dbgsym are mutually exclusive");
 	}
 }
 
-$dh{ENABLE_DDEBS} = 1 if not defined($dh{ENABLE_DDEBS});
+$dh{ENABLE_DBGSYM} = 1 if not defined($dh{ENABLE_DBGSYM});
 
-if ($dh{MIGRATE_DDEB} and not $dh{ENABLE_DDEBS}) {
-	error("--ddeb-migration and --no-ddebs are mutually exclusive");
+if ($dh{MIGRATE_DBGSYM} and not $dh{ENABLE_DBGSYM}) {
+	error("--dbgsym-migration and --no-automatic-dbgsym are mutually exclusive");
 }
 
-$dh{ENABLE_DDEBS} = 0 if not $ENV{'DH_BUILD_DDEBS'};
+$dh{ENABLE_DBGSYM} = 0 if not $ENV{'DH_BUILD_DDEBS'};
 
 # This variable can be used to turn off stripping (see Policy).
 if (get_buildoption('nostrip')) {
@@ -154,7 +178,7 @@ if (get_buildoption('nostrip')) {
 
 my $objcopy = cross_command("objcopy");
 my $strip = cross_command("strip");
-$dh{ENABLE_DDEBS} = 0 if get_buildoption('noddebs');
+$dh{ENABLE_DBGSYM} = 0 if get_buildoption('noautodbgsym') or get_buildoption('noddebs');
 
 # I could just use `file $_[0]`, but this is safer
 sub get_file_type {
@@ -168,9 +192,9 @@ sub get_file_type {
 }
 
 # Check if a file is an elf binary, shared library, or static library,
-# for use by File::Find. It'll fill the following 3 arrays with anything
-# it finds:
-my (@shared_libs, @executables, @static_libs);
+# for use by File::Find. It'll fill the 3 first arrays with anything
+# it finds.  The @build_ids will be the collected build-ids (if any)
+my (@shared_libs, @executables, @static_libs, @build_ids);
 sub testfile {
 	return if -l $_ or -d $_; # Skip directories and symlinks always.
 	
@@ -186,7 +210,7 @@ sub testfile {
 
 	# Does its filename look like a shared library?
 	#  - *.cmxs are OCaml native code shared libraries
-        #  - *.node are also native ELF binaries (for node-js)
+	#  - *.node are also native ELF binaries (for node-js)
 	if (m/.*\.(?:so.*?|cmxs|node)$/) {
 		# Ok, do the expensive test.
 		my $type=get_file_type($_);
@@ -220,20 +244,23 @@ sub testfile {
 }
 
 sub make_debug {
-	my ($file, $tmp, $desttmp, $use_build_id) = @_;
+	my ($file, $tmp, $desttmp, $use_build_id, $package) = @_;
 
 	# Don't try to copy debug symbols out if the file is already
 	# stripped.
 	return unless get_file_type($file) =~ /not stripped/;
 
 	my ($base_file)=$file=~/^\Q$tmp\E(.*)/;
-	my $debug_path;
+	my ($debug_path, $debug_build_id);
+
 	if ($use_build_id &&
 	    `LC_ALL=C readelf -n $file`=~ /^\s+Build ID: ([0-9a-f]{2})([0-9a-f]+)$/m) {
-		$debug_path=$desttmp."/usr/lib/debug/.build-id/$1/$2.debug"
+		$debug_path=$desttmp."/usr/lib/debug/.build-id/$1/$2.debug";
+		$debug_build_id="${1}${2}";
 	}
 	elsif ($use_build_id > 1) {
-		# For ddebs, we need build-id (else it will not be co-installable).
+		# For dbgsyms, we need build-id (else it will not be
+		# co-installable).
 		return;
 	}
 	else {
@@ -247,9 +274,14 @@ sub make_debug {
 		doit($objcopy, "--only-keep-debug", $file, $debug_path);
 	}
 	else {
-		# Compat 9 OR a ddeb.
+		# Compat 9 OR a dbgsym package.
 		doit($objcopy, "--only-keep-debug", "--compress-debug-sections", $file, $debug_path);
 	}
+
+	if ($use_build_id and defined($debug_build_id)) {
+		push(@build_ids, $debug_build_id);
+	}
+
 	# No reason for this to be executable.
 	doit("chmod", "0644", $debug_path);
 	return $debug_path;
@@ -288,20 +320,20 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 			$debugtmp=tmpdir($package."-dbg");
 		}
 	}
-	if ($dh{ENABLE_DDEBS} and not $keep_debug and package_arch($package) ne 'all') {
-		# Avoid creating a ddeb that would clash with a registered package
-		# or looks like a manual -dbg package.
+	if ($dh{ENABLE_DBGSYM} and not $keep_debug and package_arch($package) ne 'all') {
+		# Avoid creating a dbgsym that would clash with a registered
+		# package or looks like a manual -dbg package.
 		if (!$all_packages{"${package}-dbgsym"} or $package =~ m/-dbg$/) {
-			$debugtmp = "debian/.debhelper/${package}/ddeb-root";
+			$debugtmp = "debian/.debhelper/${package}/dbgsym-root";
 			$keep_debug = 1;
 			$use_build_id = 2;
 		}
 	}
-	@shared_libs=@executables=@static_libs=();
+	@shared_libs=@executables=@static_libs=@build_ids=();
 	find(\&testfile,$tmp);
 
 	foreach (@shared_libs) {
-		my $debug_path = make_debug($_, $tmp, $debugtmp, $use_build_id) if $keep_debug;
+		my $debug_path = make_debug($_, $tmp, $debugtmp, $use_build_id, $package) if $keep_debug;
 		# Note that all calls to strip on shared libs
 		# *must* include the --strip-unneeded.
 		doit($strip,"--remove-section=.comment",
@@ -310,7 +342,7 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 	}
 	
 	foreach (@executables) {
-		my $debug_path = make_debug($_, $tmp, $debugtmp, $use_build_id) if $keep_debug;
+		my $debug_path = make_debug($_, $tmp, $debugtmp, $use_build_id, $package) if $keep_debug;
 		doit($strip,"--remove-section=.comment",
 			"--remove-section=.note",$_);
  		attach_debug($_, $debug_path) if defined $debug_path;
@@ -330,18 +362,32 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 		}
 	}
 	if ($use_build_id > 1 and -d $debugtmp) {
-		my $ddeb_docdir = "${debugtmp}/usr/share/doc";
-		my $doc_symlink = "${ddeb_docdir}/${package}-dbgsym";
+		my $dbgsym_docdir = "${debugtmp}/usr/share/doc";
+		my $doc_symlink = "${dbgsym_docdir}/${package}-dbgsym";
 		if ( not -l $doc_symlink and not -e $doc_symlink ) {
-			install_dir($ddeb_docdir) if not -d $ddeb_docdir;
+			install_dir($dbgsym_docdir) if not -d $dbgsym_docdir;
 			doit('ln', '-s', $package, $doc_symlink);
 		}
-		if ($dh{MIGRATE_DDEB}) {
-			my $path = "debian/.debhelper/${package}/ddeb-migration";
+		if ($dh{MIGRATE_DBGSYM}) {
+			my $path = "debian/.debhelper/${package}/dbgsym-migration";
 			open(my $fd, '>', $path) or error("open $path failed: $!");
-			print {$fd} "$dh{MIGRATE_DDEB}\n";
+			print {$fd} "$dh{MIGRATE_DBGSYM}\n";
 			close($fd) or error("close $path failed: $!");
 		}
+	}
+	if (@build_ids && ($use_build_id > 1 || ref($dh{DEBUGPACKAGES}))) {
+		my ($dir, $path);
+		if ($use_build_id > 1) {
+			$dir = "debian/.debhelper/${package}";
+		} else {
+			my $dbg_pkg = @{$dh{DEBUGPACKAGES}}[0];
+			$dir = "debian/.debhelper/${dbg_pkg}";
+		}
+		$path = "${dir}/dbgsym-build-ids";
+		install_dir($dir) if ! -d $dir;
+		open(my $fd, '>>', $path) or error("open $path failed: $!");
+		print {$fd} join(q{ }, sort(@build_ids)) . "\n";
+		close($fd) or error("close $path failed: $!");
 	}
 }
 

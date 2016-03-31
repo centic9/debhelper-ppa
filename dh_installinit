@@ -72,6 +72,15 @@ any init script, default files, upstart job or systemd service file. May be
 useful if the file is shipped and/or installed by upstream in a way that
 doesn't make it easy to let B<dh_installinit> find it.
 
+B<Caveat>: This will bypass all the regular checks and
+I<unconditionally> modify the scripts.  You will almost certainly want
+to use this with B<-p> to limit, which packages are affected by the
+call.  Example:
+
+ override_dh_installinit:
+	dh_installinit -pfoo --onlyscripts
+	dh_installinit --remaining
+
 =item B<-R>, B<--restart-after-upgrade>
 
 Do not stop the init script until after the package upgrade has been
@@ -97,7 +106,7 @@ Only call B<update-rc.d>. Useful for rcS scripts.
 Remove trailing B<d> from the name of the package, and use the result for the
 filename the upstart job file is installed as in F<etc/init/> , and for the
 filename the init script is installed as in etc/init.d and the default file
-is installed as in F<etc/default/> . This may be useful for daemons with names
+is installed as in F<etc/default/>. This may be useful for daemons with names
 ending in B<d>. (Note: this takes precedence over the B<--init-script> parameter
 described below.)
 
@@ -130,10 +139,6 @@ preference to the files it normally installs.
 This parameter is deprecated, use the B<--name> parameter instead. This
 parameter is incompatible with the use of upstart jobs.
 
-=item B<--upstart-only>
-
-Deprecated option, ignored for compatibility.
-
 =item B<--error-handler=>I<function>
 
 Call the named shell I<function> if running the init script fails. The
@@ -158,10 +163,9 @@ init(options => {
 	"init-script=s" => \$dh{INIT_SCRIPT},
 	"update-rcd-params=s", => \$dh{U_PARAMS},
 	"remove-d" => \$dh{D_FLAG},
-	"upstart-only" => \$dh{UPSTART_ONLY},
 });
 
-# PROMISE: DH NOOP WITHOUT service tmpfile default upstart init init.d
+# PROMISE: DH NOOP WITHOUT service tmpfile default upstart init init.d tmp(usr/lib/tmpfiles.d) tmp(etc/tmpfiles.d)
 
 foreach my $package (@{$dh{DOPACKAGES}}) {
 	my $tmp=tmpdir($package);
@@ -254,10 +258,28 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 		error("Can't use --init-script with an upstart job");
 	}
 
-	# NB: The case that only $tmpfile is set makes no sense. The
-	# tmpfiles.d(5) mechanism is only available when using systemd (at
-	# least currently), so there has to be an init script which does the
-	# same thing for sysvinit.
+	if (!$dh{NOSCRIPTS}) {
+		# Include postinst-init-tmpfiles if the package ships any files
+		# in /usr/lib/tmpfiles.d or /etc/tmpfiles.d
+		my @tmpfiles;
+		find({
+			wanted => sub {
+				my $name = $File::Find::name;
+				return unless -f $name;
+				$name =~ s/^\Q$tmp\E//g;
+				if ($name =~ m,^/usr/lib/tmpfiles\.d/, ||
+					$name =~ m,^/etc/tmpfiles\.d/,) {
+					push @tmpfiles, $name;
+				}
+			},
+			no_chdir => 1,
+		}, $tmp);
+		if (@tmpfiles > 0) {
+			autoscript($package,"postinst", "postinst-init-tmpfiles",
+				"s,#TMPFILES#," . join(" ", sort @tmpfiles).",g");
+		}
+	}
+
 	if ($service ne '' || $job ne '' || $init ne '' || $dh{ONLYSCRIPTS}) {
 		# This is set by the -u "foo" command line switch, it's
 		# the parameters to pass to update-rc.d. If not set,
@@ -271,67 +293,39 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 		}
 		
 		if (! $dh{NOSCRIPTS}) {
-			# Include postinst-init-tmpfiles if the package ships any files
-			# in /usr/lib/tmpfiles.d or /etc/tmpfiles.d
-			my $tmpdir = tmpdir($package);
-			my @tmpfiles;
-			find({
-				wanted => sub {
-					my $name = $File::Find::name;
-					return unless -f $name;
-					$name =~ s/^$tmpdir//g;
-					if ($name =~ m,^/usr/lib/tmpfiles\.d/, ||
-						$name =~ m,^/etc/tmpfiles\.d/,) {
-						push @tmpfiles, $name;
-					}
-				},
-				no_chdir => 1,
-			}, $tmpdir);
-			if (@tmpfiles > 0) {
-				autoscript($package,"postinst", "postinst-init-tmpfiles",
-					"s,#TMPFILES#," . join(" ", @tmpfiles).",");
-			}
-
 			if (! $dh{NO_START}) {
 				if ($dh{RESTART_AFTER_UPGRADE}) {
 					# update-rc.d, and restart (or
 					# start if new install) script
 					autoscript($package,"postinst", "postinst-init-restart",
-						"s/#SCRIPT#/$script/g;s/#INITPARMS#/$params/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
+						"s/#SCRIPT#/$script/g;s/#INITPARMS#/$params/g;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/g");
 				}
 				else {
 					# update-rc.d, and start script
 					autoscript($package,"postinst", "postinst-init",
-						"s/#SCRIPT#/$script/g;s/#INITPARMS#/$params/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
+						"s/#SCRIPT#/$script/g;s/#INITPARMS#/$params/g;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/g");
 				}
 			
 				if ($dh{R_FLAG} || $dh{RESTART_AFTER_UPGRADE}) {
 					# stops script only on remove
 					autoscript($package,"prerm","prerm-init-norestart",
-						"s/#SCRIPT#/$script/g;s/#INITPARMS#/$params/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
+						"s/#SCRIPT#/$script/g;s/#INITPARMS#/$params/g;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/g");
 				}
 				else {
 					# always stops script
 					autoscript($package,"prerm","prerm-init",
-						"s/#SCRIPT#/$script/g;s/#INITPARMS#/$params/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
+						"s/#SCRIPT#/$script/g;s/#INITPARMS#/$params/g;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/g");
 				}
 			}
 			else {
 				# just update-rc.d
 				autoscript($package,"postinst", "postinst-init-nostart",
-					"s/#SCRIPT#/$script/g;s/#INITPARMS#/$params/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
+					"s/#SCRIPT#/$script/g;s/#INITPARMS#/$params/g;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/g");
 			}
 
-			if ($job ne '') {
-				$script=$jobfile;
-				autoscript($package,"preinst", "preinst-upstart-compatibility",
-					"s!#OLD#!/etc/init.d/$script!g;s!#PACKAGE#!$package!g");
-			}
-			if ($init ne '') {
-				# removes rc.d links
-				autoscript($package,"postrm","postrm-init",
-					"s/#SCRIPT#/$script/g;s/#INITPARMS#/$params/;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/");
-			}
+			# removes rc.d links
+			autoscript($package,"postrm","postrm-init",
+				"s/#SCRIPT#/$script/g;s/#INITPARMS#/$params/g;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/g");
 		}
 	}
 }
@@ -349,8 +343,6 @@ Joey Hess <joeyh@debian.org>
 Steve Langasek <steve.langasek@canonical.com>
 
 Michael Stapelberg <stapelberg@debian.org>
-
-Scott James Remnant <scott@canonical.com>
 
 =cut
 

@@ -8,6 +8,16 @@ package Debian::Debhelper::Dh_Lib;
 use strict;
 use warnings;
 
+use constant {
+	# Lowest compat level supported
+	'MIN_COMPAT_LEVEL' => 4,
+	# Lowest compat level that does *not* cause deprecation
+	# warnings
+	'LOWEST_NON_DEPRECATED_COMPAT_LEVEL' => 5,
+	# Highest compat level permitted
+	'MAX_COMPAT_LEVEL' => 10,
+};
+
 use Exporter qw(import);
 use vars qw(@EXPORT %dh);
 @EXPORT=qw(&init &doit &doit_noerror &complex_doit &verbose_print &error
@@ -16,13 +26,16 @@ use vars qw(@EXPORT %dh);
 	    &autoscript &filearray &filedoublearray
 	    &getpackages &basename &dirname &xargs %dh
 	    &compat &addsubstvar &delsubstvar &excludefile &package_arch
-	    &is_udeb &udeb_filename &debhelper_script_subst &escape_shell
+	    &is_udeb &debhelper_script_subst &escape_shell
 	    &inhibit_log &load_log &write_log &commit_override_log
 	    &dpkg_architecture_value &sourcepackage &make_symlink
 	    &is_make_jobserver_unavailable &clean_jobserver_makeflags
 	    &cross_command &set_buildflags &get_buildoption
 	    &install_dh_config_file &error_exitcode &package_multiarch
 	    &install_file &install_prog &install_lib &install_dir
+	    &get_source_date_epoch &is_cross_compiling
+	    &generated_file &autotrigger &package_section
+	    &restore_file_on_clean &restore_all_files
 );
 
 my $max_compat=10;
@@ -112,7 +125,7 @@ sub init {
 # on, if it's exiting successfully.
 my $write_log=1;
 sub END {
-	if ($? == 0 && $write_log) {
+	if ($? == 0 && $write_log && (compat(9) || $ENV{DH_INTERNAL_OVERRIDE})) {
 		write_log(basename($0), @{$dh{DOPACKAGES}});
 	}
 }
@@ -410,6 +423,11 @@ sub dirname {
 				else {
 					chomp $l;
 					$c=$l;
+					$c =~ s/^\s*+//;
+					$c =~ s/\s*+$//;
+					if ($c !~ m/^\d+$/) {
+						error("debian/compat must contain a postive number (found: \"$c\")");
+					}
 				}
 			}
 			else {
@@ -421,14 +439,17 @@ sub dirname {
 				$c=$ENV{DH_COMPAT};
 			}
 		}
+		if ($c < MIN_COMPAT_LEVEL) {
+			error("Compatibility levels before ${\MIN_COMPAT_LEVEL} are no longer supported (level $c requested)");
+		}
 
-		if ($c <= 4 && ! $warned_compat && ! $nowarn) {
-			warning("Compatibility levels before 5 are deprecated (level $c in use)");
+		if ($c < LOWEST_NON_DEPRECATED_COMPAT_LEVEL && ! $warned_compat && ! $nowarn) {
+			warning("Compatibility levels before ${\LOWEST_NON_DEPRECATED_COMPAT_LEVEL} are deprecated (level $c in use)");
 			$warned_compat=1;
 		}
 	
-		if ($c > $max_compat) {
-			error("Sorry, but $max_compat is the highest compatibility level supported by this debhelper.");
+		if ($c > MAX_COMPAT_LEVEL) {
+			error("Sorry, but ${\MAX_COMPAT_LEVEL} is the highest compatibility level supported by this debhelper.");
 		}
 
 		return ($c <= $num);
@@ -442,10 +463,6 @@ sub tmpdir {
 
 	if ($dh{TMPDIR}) {
 		return $dh{TMPDIR};
-	}
-	elsif (compat(1) && $package eq $dh{MAINPACKAGE}) {
-		# This is for back-compatibility with the debian/tmp tradition.
-		return "debian/tmp";
 	}
 	else {
 		return "debian/$package";
@@ -510,11 +527,7 @@ sub pkgfile {
 # Pass it a name of a binary package, it returns the name to prefix to files
 # in debian/ for this package.
 sub pkgext {
-	my $package=shift;
-
-	if (compat(1) and $package eq $dh{MAINPACKAGE}) {
-		return "";
-	}
+	my ($package) = @_;
 	return "$package.";
 }
 
@@ -547,10 +560,10 @@ sub pkgfilename {
 			$isnative_changelog="debian/changelog";
 		}
 		# Get the package version.
-		my $version=`dpkg-parsechangelog -l$isnative_changelog`;
-		($dh{VERSION})=$version=~m/Version:\s*(.*)/m;
+		my $version=`dpkg-parsechangelog -l$isnative_changelog -SVersion`;
+		chomp($dh{VERSION} = $version);
 		# Did the changelog parse fail?
-		if (! defined $dh{VERSION}) {
+		if ($dh{VERSION} eq q{}) {
 			error("changelog parse failure");
 		}
 
@@ -629,6 +642,58 @@ sub autoscript_sed {
 	}
 }
 
+# Adds a trigger to the package
+{
+	my %VALID_TRIGGER_TYPES = map { $_ => 1 } qw(
+		interest interest-await interest-noawait
+		activate activate-await activate-noawait
+	);
+
+	sub autotrigger {
+		my ($package, $trigger_type, $trigger_target) = @_;
+		my ($triggers_file, $ifd);
+
+		if (not exists($VALID_TRIGGER_TYPES{$trigger_type})) {
+			require Carp;
+			confess("Invalid/unknown trigger ${trigger_type}");
+		}
+		return if $dh{NO_ACT};
+
+		$triggers_file = generated_file($package, 'triggers');
+		if ( -f $triggers_file ) {
+			open($ifd, '<', $triggers_file)
+				or error("open $triggers_file failed $!");
+		} else {
+			open($ifd, '<', '/dev/null')
+				or error("open /dev/null failed $!");
+		}
+		open(my $ofd, '>', "${triggers_file}.new")
+			or error("open ${triggers_file}.new failed: $!");
+		while (my $line = <$ifd>) {
+			next if $line =~ m{\A  \Q${triggers_file}\E  \s+
+                                   \Q${trigger_target}\E (?:\s|\Z)
+                              }x;
+			print {$ofd} $line;
+		}
+		print {$ofd} '# Triggers added by ' . basename($0) . "\n";
+		print {$ofd} "${trigger_type} ${trigger_target}\n";
+		close($ofd) or error("closing ${triggers_file}.new failed: $!");
+		close($ifd);
+		doit('mv', '-f', "${triggers_file}.new", $triggers_file);
+	}
+}
+
+sub generated_file {
+	my ($package, $filename, $mkdirs) = @_;
+	my $dir = "debian/.debhelper/generated/${package}";
+	my $path = "${dir}/${filename}";
+	$mkdirs //= 1;
+	if ($mkdirs and not -d $dir) {
+		install_dir($dir);
+	}
+	return $path;
+}
+
 # Removes a whole substvar line.
 sub delsubstvar {
 	my $package=shift;
@@ -638,7 +703,7 @@ sub delsubstvar {
 	my $substvarfile="debian/${ext}substvars";
 
 	if (-e $substvarfile) {
-		complex_doit("grep -s -v '^${substvar}=' $substvarfile > $substvarfile.new || true");
+		complex_doit("grep -a -s -v '^${substvar}=' $substvarfile > $substvarfile.new || true");
 		doit("mv", "$substvarfile.new","$substvarfile");
 	}
 }
@@ -685,7 +750,7 @@ sub addsubstvar {
 	}
 
 	if (length $line) {
-		 complex_doit("(grep -s -v ${substvar} $substvarfile; echo ".escape_shell("${substvar}=$line").") > $substvarfile.new");
+		 complex_doit("(grep -a -s -v ${substvar} $substvarfile; echo ".escape_shell("${substvar}=$line").") > $substvarfile.new");
 		 doit("mv", "$substvarfile.new", $substvarfile);
 	}
 	else {
@@ -707,7 +772,9 @@ sub filedoublearray {
 	if ($x) {
 		require Cwd;
 		my $cmd=Cwd::abs_path($file);
+		$ENV{"DH_CONFIG_ACT_ON_PACKAGES"} = join(",", @{$dh{"DOPACKAGES"}});
 		open (DH_FARRAY_IN, "$cmd |") || error("cannot run $file: $!");
+		delete $ENV{"DH_CONFIG_ACT_ON_PACKAGES"};
 	}
 	else {
 		open (DH_FARRAY_IN, $file) || error("cannot read $file: $!");
@@ -721,12 +788,10 @@ sub filedoublearray {
 			next if /^#/ || /^$/;
 		}
 		my @line;
-		# Only do glob expansion in v3 mode.
-		#
 		# The tricky bit is that the glob expansion is done
 		# as if we were in the specified directory, so the
 		# filenames that come out are relative to it.
-		if (defined $globdir && ! compat(2) && ! $x) {
+		if (defined($globdir) && ! $x) {
 			foreach (map { glob "$globdir/$_" } split) {
 				s#^$globdir/##;
 				push @line, $_;
@@ -790,6 +855,12 @@ sub buildos {
 	dpkg_architecture_value("DEB_HOST_ARCH_OS");
 }
 
+# Returns a truth value if this seems to be a cross-compile
+sub is_cross_compiling {
+	return dpkg_architecture_value("DEB_BUILD_GNU_TYPE")
+	    ne dpkg_architecture_value("DEB_HOST_GNU_TYPE");
+}
+
 # Passed an arch and a list of arches to match against, returns true if matched
 {
 	my %knownsame;
@@ -842,19 +913,26 @@ sub sourcepackage {
 #
 # As a side effect, populates %package_arches and %package_types
 # with the types of all packages (not only those returned).
-my (%package_types, %package_arches, %package_multiarches);
+my (%package_types, %package_arches, %package_multiarches, %packages_by_type,
+    %package_sections);
 sub getpackages {
-	my $type=shift;
+	my ($type) = @_;
+	error("getpackages: First argument must be one of \"arch\", \"indep\", or \"both\"")
+		if defined($type) and $type ne 'both' and $type ne 'indep' and $type ne 'arch';
 
-	%package_types=();
-	%package_arches=();
-	%package_multiarches=();
+	$type //= 'all-listed-in-control-file';
+
+	if (%packages_by_type) {
+		return @{$packages_by_type{$type}};
+	}
+
+	$packages_by_type{$_} = [] for qw(both indep arch all-listed-in-control-file);
 	
-	$type="" if ! defined $type;
 
 	my $package="";
 	my $arch="";
-	my ($package_type, $multiarch, @list, %seen, @profiles,
+	my $section="";
+	my ($package_type, $multiarch, %seen, @profiles, $source_section,
 		$included_in_build_profile);
 	if (exists $ENV{'DEB_BUILD_PROFILES'}) {
 		@profiles=split /\s+/, $ENV{'DEB_BUILD_PROFILES'};
@@ -875,6 +953,9 @@ sub getpackages {
 			}
 			$package_type="deb";
 			$included_in_build_profile=1;
+		}
+		if (/^Section:\s(.*)\s*$/i) {
+			$section = $1;
 		}
 		if (/^Architecture:\s*(.*)/i) {
 			$arch=$1;
@@ -907,25 +988,29 @@ sub getpackages {
 				$package_types{$package}=$package_type;
 				$package_arches{$package}=$arch;
 				$package_multiarches{$package} = $multiarch;
+				$package_sections{$package} = $section || $source_section;
+				if ($included_in_build_profile) {
+					push(@{$packages_by_type{'all-listed-in-control-file'}}, $package);
+					if ($arch eq 'all') {
+						push(@{$packages_by_type{'indep'}}, $package);
+						push(@{$packages_by_type{'both'}}, $package);
+					} elsif ($arch eq 'any' ||
+							 ($arch ne 'all' && samearch(buildarch(), $arch))) {
+						push(@{$packages_by_type{'arch'}}, $package);
+						push(@{$packages_by_type{'both'}}, $package);
+					}
+				}
+			} elsif ($section and not defined($source_section)) {
+				$source_section = $section;
 			}
-
-			if ($package && $included_in_build_profile &&
-			    ((($type eq 'indep' || $type eq 'both') && $arch eq 'all') ||
-			     (($type eq 'arch'  || $type eq 'both') &&
-				($arch eq 'any' ||
-				  ($arch ne 'all' && samearch(buildarch(), $arch))
-			        )
-			     ) || ! $type)
-			    ) {
-				push @list, $package;
-				$package="";
-				$arch="";
-			}
+			$package='';
+			$arch='';
+			$section='';
 		}
 	}
 	close CONTROL;
 
-	return @list;
+	return @{$packages_by_type{$type}};
 }
 
 # Returns the arch a package will build for.
@@ -953,6 +1038,19 @@ sub package_multiarch {
 	return $package_multiarches{$package} // 'no';
 }
 
+# Returns the (raw) section value of a package (possibly including component).
+sub package_section {
+	my ($package) = @_;
+
+	# Test the architecture field instead, as it is common for a
+	# package to not have a multi-arch value.
+	if (! exists $package_sections{$package}) {
+		warning "package $package is not in control info";
+		return 'unknown';
+	}
+	return $package_sections{$package} // 'unknown';
+}
+
 # Return true if a given package is really a udeb.
 sub is_udeb {
 	my $package=shift;
@@ -962,24 +1060,6 @@ sub is_udeb {
 		return 0;
 	}
 	return $package_types{$package} eq 'udeb';
-}
-
-sub _xdeb_filename {
-	my ($package, $ext, $actual_name) = @_;
-
-	my $filearch=package_arch($package);
-	isnative($package); # side effect
-	my $version=$dh{VERSION};
-	$version=~s/^[0-9]+://; # strip any epoch
-	$actual_name = $package if not defined($actual_name);
-	return "${actual_name}_${version}_${filearch}.${ext}";
-}
-
-# Generates the filename that is used for a udeb package.
-sub udeb_filename {
-	my ($package) = @_;
-
-	return _xdeb_filename($package, 'udeb');
 }
 
 # Handles #DEBHELPER# substitution in a script; also can generate a new
@@ -1134,8 +1214,7 @@ sub clean_jobserver_makeflags {
 # If cross-compiling, returns appropriate cross version of command.
 sub cross_command {
 	my $command=shift;
-	if (dpkg_architecture_value("DEB_BUILD_GNU_TYPE")
-	    ne dpkg_architecture_value("DEB_HOST_GNU_TYPE")) {
+	if (is_cross_compiling()) {
 		return dpkg_architecture_value("DEB_HOST_GNU_TYPE")."-$command";
 	}
 	else {
@@ -1143,11 +1222,42 @@ sub cross_command {
 	}
 }
 
+# Returns the SOURCE_DATE_EPOCH ENV variable if set OR computes it
+# from the latest changelog entry, sets the SOURCE_DATE_EPOCH ENV
+# variable and returns the computed value.
+sub get_source_date_epoch {
+	return $ENV{SOURCE_DATE_EPOCH} if exists($ENV{SOURCE_DATE_EPOCH});
+	eval "use Dpkg::Changelog::Debian";
+	if ($@) {
+		warning "unable to set SOURCE_DATE_EPOCH: $@";
+		return;
+	}
+	eval "use Time::Piece";
+	if ($@) {
+		warning "unable to set SOURCE_DATE_EPOCH: $@";
+		return;
+	}
+
+	my $changelog = Dpkg::Changelog::Debian->new(range => {"count" => 1});
+	$changelog->load("debian/changelog");
+
+	my $tt = @{$changelog}[0]->get_timestamp();
+	$tt =~ s/\s*\([^\)]+\)\s*$//; # Remove the optional timezone codename
+	my $timestamp = Time::Piece->strptime($tt, "%a, %d %b %Y %T %z");
+
+	return $ENV{SOURCE_DATE_EPOCH} = $timestamp->epoch();
+}
+
 # Sets environment variables from dpkg-buildflags. Avoids changing
 # any existing environment variables.
 sub set_buildflags {
-	return if $ENV{DH_INTERNAL_BUILDFLAGS} || compat(8);
+	return if $ENV{DH_INTERNAL_BUILDFLAGS};
 	$ENV{DH_INTERNAL_BUILDFLAGS}=1;
+
+	# For the side effect of computing the SOURCE_DATE_EPOCH variable.
+	get_source_date_epoch();
+
+	return if compat(8);
 
 	eval "use Dpkg::BuildFlags";
 	if ($@) {
@@ -1212,6 +1322,83 @@ sub install_dh_config_file {
 	}
 	return 1;
 }
+
+sub restore_file_on_clean {
+	my ($file) = @_;
+	my $bucket_index = 'debian/.debhelper/bucket/index';
+	my $bucket_dir = 'debian/.debhelper/bucket/files';
+	my $checksum;
+	if (not -d $bucket_dir) {
+		install_dir($bucket_dir);
+	}
+	if ($file =~ m{^/}) {
+		error("restore_file_on_clean requires a path relative to the package dir");
+	}
+	$file =~ s{^\./}{}g;
+	$file =~ s{//++}{}g;
+	if ($file =~ m{^\.} or $file =~ m{/CVS/} or $file =~ m{/\.svn/}) {
+		# We do not want to smash a Vcs repository by accident.
+		warning("Attempt to store $file, which looks like a VCS file or");
+		warning("a hidden package file (like quilt's \".pc\" directory");
+		error("This tool probably contains a bug.");
+	}
+	if (-l $file or not -f _) {
+		error("Cannot store $file, which is a non-file (incl. a symlink)");
+	}
+	require Digest::SHA;
+
+	$checksum = Digest::SHA->new('256')->addfile($file, 'b')->hexdigest;
+
+	if (not $dh{NO_ACT}) {
+		my ($in_index);
+		open(my $fd, '+>>', $bucket_index)
+			or error("open($bucket_index, a+) failed: $!");
+		seek($fd, 0, 0);
+		while (my $line = <$fd>) {
+			my ($cs, $stored_file);
+			chomp($line);
+			($cs, $stored_file) = split(m/ /, $line, 2);
+			next if ($stored_file ne $file);
+			$in_index = 1;
+		}
+		if (not $in_index) {
+			# Copy and then rename so we always have the full copy of
+			# the file in the correct place (if any at all).
+			doit('cp', '-an', '--reflink=auto', $file, "${bucket_dir}/${checksum}.tmp");
+			doit('mv', '-f', "${bucket_dir}/${checksum}.tmp", "${bucket_dir}/${checksum}");
+			print {$fd} "${checksum} ${file}\n";
+		}
+		close($fd) or error("close($bucket_index) failed: $!");
+	}
+
+	return 1;
+}
+
+sub restore_all_files {
+	my $bucket_index = 'debian/.debhelper/bucket/index';
+	my $bucket_dir = 'debian/.debhelper/bucket/files';
+
+	return if not -f $bucket_index;
+	open(my $fd, '<', $bucket_index)
+		or error("open($bucket_index) failed: $!");
+
+	while (my $line = <$fd>) {
+		my ($cs, $stored_file, $bucket_file);
+		chomp($line);
+		($cs, $stored_file) = split(m/ /, $line, 2);
+		$bucket_file = "${bucket_dir}/${cs}";
+		# Restore by copy and then rename.  This ensures that:
+		# 1) If dh_clean is interrupted, we can always do a full restore again
+		#    (otherwise, we would be missing some of the files and have to handle
+		#     that with scary warnings)
+		# 2) The file is always fully restored or in its "pre-restore" state.
+		doit('cp', '-an', '--reflink=auto', $bucket_file, "${bucket_file}.tmp");
+		doit('mv', '-Tf', "${bucket_file}.tmp", $stored_file);
+	}
+	close($fd);
+	return;
+}
+
 
 1
 

@@ -8,8 +8,22 @@ package Debian::Debhelper::Buildsystem::cmake;
 
 use strict;
 use warnings;
-use Debian::Debhelper::Dh_Lib qw(compat);
+use Debian::Debhelper::Dh_Lib qw(compat dpkg_architecture_value error is_cross_compiling);
 use parent qw(Debian::Debhelper::Buildsystem::makefile);
+
+my @STANDARD_CMAKE_FLAGS = qw(
+  -DCMAKE_INSTALL_PREFIX=/usr
+  -DCMAKE_VERBOSE_MAKEFILE=ON
+  -DCMAKE_BUILD_TYPE=None
+  -DCMAKE_INSTALL_SYSCONFDIR=/etc
+  -DCMAKE_INSTALL_LOCALSTATEDIR=/var
+);
+
+my %DEB_HOST2CMAKE_SYSTEM = (
+	'linux'    => 'Linux',
+	'kfreebsd' => 'FreeBSD',
+	'hurd'     => 'GNU',
+);
 
 sub DESCRIPTION {
 	"CMake (CMakeLists.txt)"
@@ -39,12 +53,28 @@ sub new {
 
 sub configure {
 	my $this=shift;
-	my @flags;
-
 	# Standard set of cmake flags
-	push @flags, "-DCMAKE_INSTALL_PREFIX=/usr";
-	push @flags, "-DCMAKE_VERBOSE_MAKEFILE=ON";
-	push @flags, "-DCMAKE_BUILD_TYPE=None";
+	my @flags = @STANDARD_CMAKE_FLAGS;
+
+	if (is_cross_compiling()) {
+		my $deb_host = dpkg_architecture_value("DEB_HOST_ARCH_OS");
+		if (my $cmake_system = $DEB_HOST2CMAKE_SYSTEM{$deb_host}) {
+			push(@flags, "-DCMAKE_SYSTEM_NAME=${cmake_system}");
+		} else {
+			error("Cannot cross-compile - CMAKE_SYSTEM_NAME not known for ${deb_host}");
+		}
+		push @flags, "-DCMAKE_SYSTEM_PROCESSOR=" . dpkg_architecture_value("DEB_HOST_GNU_CPU");
+		if ($ENV{CC}) {
+			push @flags, "-DCMAKE_C_COMPILER=" . $ENV{CC};
+		} else {
+			push @flags, "-DCMAKE_C_COMPILER=" . dpkg_architecture_value("DEB_HOST_GNU_TYPE") . "-cc";
+		}
+		if ($ENV{CXX}) {
+			push @flags, "-DCMAKE_CXX_COMPILER=" . $ENV{CXX};
+		} else {
+			push @flags, "-DCMAKE_CXX_COMPILER=" . dpkg_architecture_value("DEB_HOST_GNU_TYPE") . "-c++";
+		}
+	}
 
 	# CMake doesn't respect CPPFLAGS, see #653916.
 	if ($ENV{CPPFLAGS} && ! compat(8)) {
@@ -56,11 +86,11 @@ sub configure {
 	eval { 
 		$this->doit_in_builddir("cmake", $this->get_source_rel2builddir(), @flags, @_);
 	};
-	if ($@) {
+	if (my $err = $@) {
 		if (-e $this->get_buildpath("CMakeCache.txt")) {
 			$this->doit_in_builddir("tail -v -n +0 CMakeCache.txt");
 		}
-		die $@;
+		die $err;
 	}
 }
 

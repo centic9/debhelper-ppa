@@ -8,7 +8,8 @@ dh_compress - compress files and fix symlinks in package build directories
 
 use strict;
 use warnings;
-use Cwd;
+use Cwd qw(getcwd abs_path);
+use File::Spec::Functions qw(abs2rel);
 use Debian::Debhelper::Dh_Lib;
 
 =head1 SYNOPSIS
@@ -76,6 +77,8 @@ Debian policy, version 3.0
 
 init();
 
+my $olddir;
+
 foreach my $package (@{$dh{DOPACKAGES}}) {
 	my $tmp=tmpdir($package);
 
@@ -84,7 +87,7 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 	# Run the file name gathering commands from within the directory
 	# structure that will be effected.
 	next unless -d $tmp;
-	my $olddir=getcwd();
+	$olddir = getcwd() if not defined $olddir;
 	verbose_print("cd $tmp");
 	chdir($tmp) || error("Can't cd to $tmp: $!");
 
@@ -92,7 +95,7 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 	my @files;
 	# First of all, deal with any files specified right on the command line.
 	if (($package eq $dh{FIRSTPACKAGE} || $dh{PARAMS_ALL}) && @ARGV) {
-		push @files, @ARGV;
+		push @files, map { s{^/+}{}; $_ } @ARGV;
 	}
 	if ($compress) {
 		# The compress file is a sh script that outputs the files to be compressed
@@ -126,6 +129,7 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 				! -iname "*.xz" ! -iname "*.lz" ! -iname "*.lzma" \\
 				! -iname "*.svg" ! -iname "*.svgz" ! -iname "*.js" \\
 				! -name "index.sgml" ! -name "objects.inv" ! -name "*.map" \\
+				! -name "*.devhelp2" \\
 				! -name "copyright" 2>/dev/null || true;
 			find usr/share/fonts/X11 -type f -name "*.pcf" 2>/dev/null || true;
 		`);
@@ -155,7 +159,7 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 	my %seen;
 	foreach (@files) {
 		my ($dev, $inode, undef, $nlink)=stat($_);
-		if ($nlink > 1) {
+		if (defined $nlink && $nlink > 1) {
 			if (! $seen{"$inode.$dev"}) {
 				$seen{"$inode.$dev"}=$_;
 				push @f, $_;
@@ -170,6 +174,12 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 		}
 	}
 
+	# normalize file names and remove duplicates
+	my @normalized = map abs2rel(abs_path($_)), @f;
+	my %uniq_f; @uniq_f{@normalized} = ();
+	@f = sort keys %uniq_f;
+
+	# do it
 	if (@f) {
 		# Make executables not be anymore.
 		xargs(\@f,"chmod","a-x");

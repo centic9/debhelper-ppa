@@ -1,3 +1,378 @@
+debhelper (9.20160115ubuntu3) xenial; urgency=medium
+
+  * Backport upstream commit 9ca73a0a ("Pass -a to grep to handle
+    substvars with unicode content gracefully") to fix build-failure
+    with php-mf2 (LP: #1564492, Closes #815620).
+
+ -- Nishanth Aravamudan <nish.aravamudan@canonical.com>  Thu, 31 Mar 2016 08:33:23 -0700
+
+debhelper (9.20160115ubuntu2) xenial; urgency=medium
+
+  * dh-strip: Adjust reversion of commit f1a803456 to account for the recent
+    ENABLE_DDEBS → ENABLE_DBGSYM rename. This actually disables -dbgsym
+    generation by dh_strip by default again. (LP: #1535949)
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Wed, 20 Jan 2016 07:58:09 +0100
+
+debhelper (9.20160115ubuntu1) xenial; urgency=medium
+
+  * Merge from Debian unstable.  Remaining changes:
+    - autoscripts/*-init*: Test for /etc/init/*.conf where necessary.
+    - dh_installchangelogs: Do not install upstream changelog in compat
+      level 7.  This floods packages with huge upstream changelogs which
+      take precious CD space.
+    - dh_installinit: Add dependency to lsb-base >= 4.1+Debian11ubuntu7 that
+      provides the upstart LSB hook, to avoid upgrade breakage. This change
+      can be dropped after 16.04 LTS.
+    - dh_strip: Revert commit f1a803456 to disable ddebs generation by
+      default.  This first needs adjustments in Launchpad and ddebs.u.c., and
+      dropping pkg-create-dbgsym.
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Tue, 19 Jan 2016 19:55:45 +0100
+
+debhelper (9.20160115) unstable; urgency=medium
+
+  * Fix brown paper bag bug that caused many packages to
+    FTBFS when dh_update_autotools_config was called.
+    (Closes: #811052)
+  * Revert removal of autoscripts/*-makeshlibs.  Some packages
+    injected them directly into their maintainer scripts.
+    (Closes: #811038)
+
+ -- Niels Thykier <niels@thykier.net>  Fri, 15 Jan 2016 20:28:37 +0000
+
+debhelper (9.20160114) unstable; urgency=low
+
+  [ Niels Thykier ]
+  * Dh_Lib.pm: Pass "-S" to dpkg-parsechangelog when requesting
+    the Version field.
+  * Drop compat level 3.
+  * dh_install: Only fallback to debian/tmp if the given glob
+    does not start with debian/tmp.  This should make the
+    output on failures less weird.
+  * autoscripts/*-makeshlibs: Removed, no longer used.
+  * dh: In compat 10, drop the manual sequence control arguments
+    and the sequence log files.  (Closes: #510855)
+  * dh_update_autotools_config: New helper to update config.sub
+    and config.guess.
+  * dh: Run dh_update_autotools_config before dh_auto_configure.
+    (Closes: #733045)
+  * d/control: Add dependency on autotools-dev for the new
+    dh_update_autotools_config tool.
+  * dh_installinit: Correct the "PROMISE NOOP" clause to account
+    for /etc/tmpfiles.d and /usr/lib/tmpfiles.d.
+  * dh_strip: Add "--(no-)automatic-dbgsym" and "--dbgsym-migration"
+    options to replace "--(no-)ddebs" and "--ddeb-migration".
+    (Closes: #810948)
+
+  [ Dmitry Shachnev ]
+  * dh_install: Fail because of missing files only after processing
+    all file lists for all packages.  (Closes: #488346)
+
+ -- Niels Thykier <niels@thykier.net>  Thu, 14 Jan 2016 22:01:03 +0000
+
+debhelper (9.20151225ubuntu1) xenial; urgency=medium
+
+  * Merge from Debian unstable.  Remaining changes:
+    - autoscripts/*-init*: Test for /etc/init/*.conf where necessary.
+    - dh_installchangelogs: Do not install upstream changelog in compat
+      level 7.  This floods packages with huge upstream changelogs which
+      take precious CD space.
+    - dh_installinit: Add dependency to lsb-base >= 4.1+Debian11ubuntu7 that
+      provides the upstart LSB hook, to avoid upgrade breakage. This change
+      can be dropped after 16.04 LTS.
+  * dh_strip: Revert commit f1a803456 to disable ddebs generation by default.
+    This first needs adjustments in Launchpad and ddebs.u.c., and dropping
+    pkg-create-dbgsym.
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 04 Jan 2016 11:07:56 +0100
+
+debhelper (9.20151225) unstable; urgency=medium
+
+  * dh_installmanpages: Fix call to getpackages.  Thanks to
+    Niko Tyni for reporting the issue.  (Closes: #808603)
+  * Dh_Lib.pm: Restore the behaviour of getpackages(), which
+    is slightly different from getpackages('both').  Fixes
+    a regression introduced in 9.20151220.
+
+ -- Niels Thykier <niels@thykier.net>  Fri, 25 Dec 2015 14:39:18 +0000
+
+debhelper (9.20151220) unstable; urgency=medium
+
+  * dh_strip: Document that dbgsym packages are built by
+    default.
+  * Dh_Lib: Cache the results of getpackages.
+  * dh_gencontrol: Create debug symbol packages with the same
+    component as the original package.
+
+ -- Niels Thykier <niels@thykier.net>  Sun, 20 Dec 2015 11:59:33 +0000
+
+debhelper (9.20151219) unstable; urgency=medium
+
+  * dh_installinit: Apply patch from Reiner Herrmann to sort
+    temporary files put in postinst.  (Closes: #806392)
+  * dh_installinit: Import change from Ubuntu to add /g
+    modifier when substituting the auto-script snippets.
+  * dh_*: Add /g when substituting the auto-script snippts in
+    other commands as well.
+  * dh_strip: Do not assume that ELF binaries have a Build-Id.
+    Thanks to Helmut Grohne for spotting this issue.
+    (Closes: #806814)
+  * dh_strip: Enable generation of dbgsym packages by default.
+    Thanks to Ansgar Burchardt and Paul Tagliamonte for
+    implementing the DAK side of this feature.
+    (Closes: #510772)
+
+ -- Niels Thykier <niels@thykier.net>  Sat, 19 Dec 2015 22:01:53 +0000
+
+debhelper (9.20151126ubuntu1) xenial; urgency=medium
+
+  * Merge from Debian unstable.  Remaining changes:
+    - autoscripts/*-init*: Test for /etc/init/*.conf where necessary. This
+      uses the #SCRIPT# macro twice, thus in dh_installinit, replace all
+      occurrences of that not just the first one.
+    - dh_installchangelogs: Do not install upstream changelog in compat
+      level 7.  This floods packages with huge upstream changelogs which
+      take precious CD space.
+    - dh_installinit: Add dependency to lsb-base >= 4.1+Debian11ubuntu7 that
+      provides the upstart LSB hook, to avoid upgrade breakage. This change
+      can be dropped after 16.04 LTS.
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Sat, 28 Nov 2015 12:57:41 +0100
+
+debhelper (9.20151126) unstable; urgency=medium
+
+  * dh_compress: Apply patch from Michael Biebl to skip
+    compression of .devhelp2 files.  (Closes: #789153)
+  * dh_installinit: Undo "Disable initscripts when a package is
+    removed (but not yet purged)". (Reopens #749400,
+    Closes: #806276)
+
+ -- Niels Thykier <niels@thykier.net>  Thu, 26 Nov 2015 18:06:06 +0100
+
+debhelper (9.20151117ubuntu2) xenial; urgency=medium
+
+  * autoscripts/postinst-init: Fix merge error that caused dh_installinit to
+    generate broken postinsts.
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Wed, 25 Nov 2015 06:05:07 +0100
+
+debhelper (9.20151117ubuntu1) xenial; urgency=medium
+
+  * Merge from Debian unstable.  Remaining changes:
+    - autoscripts/*-init*: Test for /etc/init/*.conf where necessary. This
+      uses the #SCRIPT# macro twice, thus in dh_installinit, replace all
+      occurrences of that not just the first one.
+    - dh_installchangelogs: Do not install upstream changelog in compat
+      level 7.  This floods packages with huge upstream changelogs which
+      take precious CD space.
+    - dh_installinit: Add dependency to lsb-base >= 4.1+Debian11ubuntu7 that
+      provides the upstart LSB hook, to avoid upgrade breakage. This change
+      can be dropped after 16.04 LTS.
+  * Dropped Ubuntu changes:
+    - dh_installudev: Change default rules.d symlink priority to 40. This
+      change has been pointless for a long time, Debian and Ubuntu use the
+      upstream udev rules.
+    - dh_installinit: Add no-op --upstart-only option for compatibility. The
+      remaining packages that used this got fixed. (LP: #1519228)
+    - autoscripts/preinst-upstart-compatibility: Handle upgrades from older
+      versions that created the /lib/init/upstart-job symlink. This was done
+      in saucy and thus finished in trusty.
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Tue, 24 Nov 2015 08:43:50 +0100
+
+debhelper (9.20151117) unstable; urgency=medium
+
+  [ Niels Thykier ]
+  * dh_clean: Temporarily interpret the absence of d/compat and
+    DH_COMPAT to mean compat 5.  This is to avoid breaking
+    packages that rely on cdbs to set debian/compat to 5 during
+    the build.  This temporary work around will live until
+    d/compat becomes mandatory.  (Closes: #805404)
+
+  [ Translations ]
+  * Update German translation (Chris Leick)
+    (Closes: #802198)
+
+ -- Niels Thykier <niels@thykier.net>  Tue, 17 Nov 2015 21:29:17 +0100
+
+debhelper (9.20151116) unstable; urgency=medium
+
+  [ Niels Thykier ]
+  * dh_strip: Sort build-ids to make the Build-Ids header
+    reproducible.
+  * Dh_Lib.pm: Respect --no-act in autotrigger, thanks to
+    Andreas Henriksson and Helmut Grohne for reporting
+    the issue.  (Closes: #800919)
+  * Fix typos in various manpages.  Thanks to Chris Leick
+    for reporting them.
+  * dh_clean: Avoid cleaning up debian/.debhelper when
+    passed the "-d" flag.
+  * Dh_Lib.pm: Reject compat levels earlier than 3.
+  * dh_clean: Support removal of directory (plus contents)
+    when they are marked with a trailing slash.
+    (Closes: #511048)
+  * dh_install,dh_installdocs,dh_installexamples: Apply
+    patches from Niko Tyni to make timestamp of directories
+    created from "find"-pipelines reproducible.
+    (Closes: #802005)
+  * dh_installinit: The postinst snippets are now only run
+    during "configure" or "abort-upgrade".
+    (Closes: #188028)
+  * cmake.pm: Apply patch from Jonathan Hall to fix an
+    accidental error hiding.  (Closes: #802984)
+  * qmake.pm: Apply patch from Sergio Durigan Junior to
+    create the build dir if it doesn't exist.
+    (Closes: #800738)
+  * dh_installinit: Disable initscripts when a package is
+    removed (but not yet purged).  (Closes: #749400)
+  * Dh_Lib.pm: Reject debian/compat files where the first
+    line is not entirely a positive number.
+
+  [ Translations ]
+  * Update German translation (Chris Leick)
+    (Closes: #802198)
+  * Update Portuguese translation (Américo Monteiro)
+    (Closes: #804631)
+  * Updated french translation (Baptiste Jammet)
+    (Closes: #805218)
+
+ -- Niels Thykier <niels@thykier.net>  Mon, 16 Nov 2015 21:05:53 +0100
+
+debhelper (9.20151005ubuntu2) xenial; urgency=medium
+
+  * Put back dh-strip-nondeterminism dependency, MIR got approved.
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Tue, 03 Nov 2015 13:32:54 -0600
+
+debhelper (9.20151005ubuntu1) xenial; urgency=medium
+
+  * Merge from Debian unstable.  Remaining changes:
+    - autoscripts/preinst-upstart-compatibility: Handle upgrades from older
+      versions that created the /lib/init/upstart-job symlink.
+    - autoscripts/*-init*: Test for /etc/init/*.conf where necessary.
+    - dh_installinit: Add no-op --upstart-only option for compatibility.
+    - dh_installudev: Change default rules.d symlink priority to 40.
+    - dh_installchangelogs: Do not install upstream changelog in compat
+      level 7.  This floods packages with huge upstream changelogs which
+      take precious CD space.
+  * Drop dh-strip-nondeterminism dependency for now, until the MIR gets
+    processed (LP: #1508999)
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 22 Oct 2015 17:52:54 +0200
+
+debhelper (9.20151005) unstable; urgency=medium
+
+  * dh_strip: Sort build-ids to make the Build-Ids header
+    reproducible.
+  * Dh_Lib.pm: Respect --no-act in autotrigger, thanks to
+    Andreas Henriksson and Helmut Grohne for reporting
+    the issue.  (Closes: #800919)
+
+ -- Niels Thykier <niels@thykier.net>  Mon, 05 Oct 2015 08:33:26 +0200
+
+debhelper (9.20151004) unstable; urgency=medium
+
+  [ Niels Thykier ]
+  * dh/dh_auto_*: Apply patch from Eduard Sanou to define
+    SOURCE_DATE_EPOCH.  (Closes: #791823)
+  * cmake.pm: Add better cross-compile support for cmake.
+    Heavily based on a patch from Helmut Grohne.
+    (Closes: #794396)
+  * cmake.pm: Pass -DCMAKE_INSTALL_SYSCONFDIR=/etc and
+    -DCMAKE_INSTALL_LOCALSTATEDIR=/var to cmake.  Thanks to
+    Felix Geyer, Lisandro Damián Nicanor Pérez Meyer and
+    Michael Terry for the assistance plus suggestions.
+    (Closes: #719148)
+  * dh_installinit: Quote directory name before using it in
+    a regex.
+  * dh_installinit: Create script snippts for tmpfiles.d
+    files even if the package has no sysvinit script or
+    explicit debian/<package>.service file.
+    (Closes: #795519)
+  * dh_makeshlibs: Revert passing -X to ldconfig in compat 10
+    after talking with the glibc maintainer.  This is not the
+    right place to make this change.
+  * d/control: Remove the homepage field.
+  * dh: Make dh_strip_nondeterminism optional, so debhelper
+    does not need to build-depend on it.
+  * dh_gencontrol/dh_builddeb: Temporarily stop building ddebs
+    for udebs as dpkg-gencontrol and dpkg-deb does not agree
+    the default file extension for these.
+  * dh_builddeb: Generate udebs with the correct filename even
+    when "-V" is passed to dpkg-gencontrol.  This relies on
+    dpkg-deb getting everything but the extension correct
+    (see #575059, #452273 for why it does not produce the
+     correct extesion).
+    (Closes: #516721, #677353, #672282)
+  * Dh_Lib.pm: Drop now unused "udeb_filename" subroutine.
+  * dh_strip.1: Correct the documentation about ddebs to
+    reflect the current implementation (rather than the
+    desired "state").  Thanks to Jakub Wilk for the report.
+    (Closes: #797002)
+  * dh_fixperms: Reset permissions to 0644 for .js, .css,
+    .jpeg, .jpg, .png, and .gif files.  Thanks to Ernesto
+    Hernández-Novich for the suggestion.  (Closes: #595097)
+  * dh_install: Read debian/not-installed if present as a
+    list of files that are deliberately not installed.
+    Files listed here will not cause dh_install to complain
+    with --list-missing.  Thanks to Peter Eisentraut for the
+    suggestion.  (Closes: #436240)
+  * Dh_Lib: Cherry-pick patch from Chris Lamb to only read
+    the latest changelog entry when determing the
+    SOURCE_DATE_EPOCH.
+  * debhelper.7: Provide a better example of how to insert
+    the debhelper maintainer script snippets into a maintainer
+    script written in Perl.  Thanks to Jakub Wilk for
+    reporting the issues.  (Closes: #797904)
+  * dh_shlibdeps: The "-L" option can now be passed multiple
+    times with different package names.  Thanks to Tristan
+    Schmelcher for the suggestion.  (Closes: #776103)
+  * dh,Buildsytems: In compat 10, default to --parallel.
+  * dh,Buildsytems: Accept "--no-parallel" to disable
+    parallel builds.  It is effectively the same as using
+    --max-parallel=1 but may be more intuitive to some people.
+  * dh_makeshlibs: Use a noawait trigger to invoke ldconfig
+    rather maintscripts.
+  * dh_installdirs.1: Add a note that many packages will work
+    fine without calling dh_installdirs.  (Closes: #748993)
+  * dh_compress: Apply patch from Rafael Kitover to support
+    passing files to dh_compress that would have been
+    compressed anyway.  (Closes: #794898)
+  * Dh_Lib: Apply patch from Gergely Nagy to make debhelper
+    export "DH_CONFIG_ACT_ON_PACKAGES" when executing an
+    executable debhelper config file.  This is intended to
+    assist dh-exec (etc.) in figuring what packages are
+    acted on.  (Closes: #698054)
+  * dh_movefiles: Expand globs in arguments passed in all
+    compat levels (and not just compat 1 and 2).
+    (Closes: #800332)
+  * dh_installinit: Clearly document that --onlyscripts
+    should generally be used with -p (or similar) to limit
+    the number of affected packages.  (Closes: #795193)
+
+  [ Paul Tagliamonte ]
+  * dh_gencontrol: Put debug debs back in the "debug" section.
+  * dh_strip/dh_gencontrol: Add a space separated list of
+    build-ids in the control file of packages containing
+    deattached debug symbols.
+
+  [ Andrew Ayer ]
+  * d/control: Depend on dh-strip-nondeterminism
+  * dh: Call dh_strip_nondeterminism during build.
+    (Closes: #759895)
+
+  [ Colin Watson ]
+  * Buildsystem.pm: Fix doit_in_sourcedir/doit_in_builddir to
+    always chdir back to the original directory even if the
+    subprocess exits non-zero.  (Closes: #798116)
+
+  [ Translations ]
+  * Update Portuguese translation (Américo Monteiro)
+    (Closes: #790820)
+
+ -- Niels Thykier <niels@thykier.net>  Sun, 04 Oct 2015 17:34:16 +0200
+
 debhelper (9.20150811ubuntu2) wily; urgency=medium
 
   * dh_movefiles: Expand globs in arguments passed in all

@@ -55,6 +55,15 @@ itself, with no explicit destination, then B<dh_install>
 will automatically guess the destination to use, the same as if the
 --autodest option were used.
 
+=item debian/not-installed
+
+List the files that are deliberately not installed in any package.
+This is used with B<--list-missing> (or B<--fail-missing>) as an
+exclude file.
+
+Please keep in mind that dh_install will B<not> expand wildcards in
+this file.
+
 =back
 
 =head1 OPTIONS
@@ -127,6 +136,8 @@ my @installed;
 my $srcdir = '.';
 $srcdir = $dh{SOURCEDIR} if defined $dh{SOURCEDIR};
 
+my $missing_files = 0;
+
 # PROMISE: DH NOOP WITHOUT install
 
 foreach my $package (getpackages()) {
@@ -167,15 +178,20 @@ foreach my $package (getpackages()) {
 			if (! compat(6)) {
 				# Fall back to looking in debian/tmp.
 				if (! @found || ! (-e $found[0] || -l $found[0])) {
-					@found = glob "debian/tmp/$glob";
+					@found = glob "debian/tmp/$glob"
+						if $glob !~ m{^(?:\./)?debian/tmp/};
 				}
 			}
-			push @filelist, @found;
+			if (@found && (-e $found[0] || -l $found[0])) {
+				push @filelist, @found;
+			}
 		}
 
 		if (! compat(4)) { # check added in v5
 			if (! @filelist && ! $skip_install) {
-				error("$package missing files (@$set), aborting");
+				warning("$package missing files: @$set");
+				++$missing_files;
+				next;
 			}
 		}
 
@@ -183,7 +199,7 @@ foreach my $package (getpackages()) {
 			next if excludefile($src);
 			
 			push @installed, $src;
-			next if $skip_install;
+			next if $skip_install or $missing_files;
 		
 			if (! defined $dest) {
 				# Guess at destination directory.
@@ -205,11 +221,13 @@ foreach my $package (getpackages()) {
 				my $pwd=`pwd`;
 				chomp $pwd;
 				complex_doit("cd '$dir' && " .
-							 "find '$basename' $exclude \\( -type f -or -type l \\) -print0 | xargs -0 -I {} cp --reflink=auto --parents -dp {} $pwd/$tmp/$dest/");
+							 "find '$basename' $exclude \\( -type f -or -type l \\) -print0 | LC_ALL=C sort -z | " .
+							 "xargs -0 -I {} cp --reflink=auto --parents -dp {} $pwd/$tmp/$dest/");
 				# cp is annoying so I need a separate pass
 				# just for empty directories
 				complex_doit("cd '$dir' && " .
-							 "find '$basename' $exclude \\( -type d -and -empty \\) -print0 | xargs -0 -I {} cp --reflink=auto --parents -a {} $pwd/$tmp/$dest/");
+							 "find '$basename' $exclude \\( -type d -and -empty \\) -print0 | LC_ALL=C sort -z | " .
+							 "xargs -0 -I {} cp --reflink=auto --parents -a {} $pwd/$tmp/$dest/");
 			}
 			else {
 				doit("cp", '--reflink=auto', "-a", $src, "$tmp/$dest/");
@@ -229,6 +247,10 @@ if ($dh{LIST_MISSING} || $dh{FAIL_MISSING}) {
 	}
 	
 	my @missing;
+	if ( -f 'debian/not-installed') {
+		# Pretend that these are also installed.
+		push(@installed, filearray('debian/not-installed'));
+	}
 	my $installed=join("|", map {
 		# Kill any extra slashes, for robustness.
 		y:/:/:s;
@@ -252,6 +274,10 @@ if ($dh{LIST_MISSING} || $dh{FAIL_MISSING}) {
 			error("missing files, aborting");
 		}
 	}
+}
+
+if ($missing_files) {
+	error("missing files, aborting");
 }
 
 =head1 LIMITATIONS

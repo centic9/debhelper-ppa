@@ -233,6 +233,12 @@ autoscript($package, $scriptname, $snippetname, $sedcommands || $sub)
 	maintainer script (like the postinst or prerm).
 	Note that in v6 mode and up, the snippets are added in reverse
 	order for the removal scripts.
+autotrigger($package, $trigger_type, $trigger_target)
+	This command automatically adds a trigger to the package.  The
+	parameters:
+	- binary package to be affected
+	- the type of trigger (e.g. "activate-noawait")
+	- the target (e.g. "ldconfig" or "/usr/share/foo")
 dirname($pathname)
 	Return directory part of pathname.
 basename($pathname)
@@ -260,17 +266,20 @@ excludefile($filename)
 is_udeb($package)
 	Returns true if the package is marked as a udeb in the control
 	file.
-udeb_filename($package)
-	Returns the filename of the udeb package.
 getpackages($type)
 	Returns a list of packages in the control file.
 	Pass "arch" or "indep" to specify arch-dependent or
-	-independent. If nothing is specified, returns all
+	-independent. If $type is omitted, returns all
 	packages (including packages that are not built
 	for this architecture). Pass "both" to get the union
 	of "arch" and "indep" packages.
+	Note that "both" is *not* the same omitting the $type parameter.
 	As a side effect, populates %package_arches and %package_types with
 	the types of all packages (not only those returned).
+get_source_date_epoch()
+	Return the value of $ENV{SOURCE_DATE_EPOCH} if exists.
+	Otherwise compute the value from the first changelog entry,
+	use it to set the ENV variable and return it.
 inhibit_log()
 	Prevent logging the program's successful finish to
 	debian/*debhelper.log
@@ -281,6 +290,15 @@ load_log($package, $hashref)
 write_log($cmd, $package ...)
 	Writes the log files for the specified package(s), adding
 	the cmd to the end.
+restore_file_on_clean($file)
+	Store a copy of $file, which will be restored by dh_clean.
+	The $file *must* be a relative path to the package root and
+	*must* be a real regular file.  Dirs, devices and symlinks
+	(and everything else) *cannot* be restored by this.
+	If $file is passed multiple times (e.g. from different programs)
+	only the first version is stored.
+	CAVEAT: This *cannot* undo arbitrary "rm -fr"'ing.  The dir,
+	which is/was in $file, must be present when dh_clean is called.
 make_symlink($src, $dest, $tmp)
 	Creates a Policy compliant sytem link called $dest pointing to
 	$src. If $tmp is given, then $tmp will be prefixed to $dest when
@@ -309,7 +327,7 @@ install_lib($src, $dest)
 Sequence Addons:
 ---------------
 
-The dh(1) command has a --with <addon> parameter that ca be used to load
+The dh(1) command has a --with <addon> parameter that can be used to load
 a sequence addon module named Debian::Debhelper::Sequence::<addon>. 
 These modules can add/remove commands to the dh command sequences, by
 calling some functions from Dh_Lib:

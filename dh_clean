@@ -12,7 +12,7 @@ use Debian::Debhelper::Dh_Lib;
 
 =head1 SYNOPSIS
 
-B<dh_clean> [S<I<debhelper options>>] [B<-k>] [B<-d>] [B<-X>I<item>] [S<I<file> ...>]
+B<dh_clean> [S<I<debhelper options>>] [B<-k>] [B<-d>] [B<-X>I<item>] [S<I<path> ...>]
 
 =head1 DESCRIPTION
 
@@ -35,7 +35,10 @@ B<clean> target in F<debian/rules>.
 
 =item F<debian/clean>
 
-Can list other files to be removed.
+Can list other paths to be removed.
+
+Note that directories listed in this file B<must> end with a trailing
+slash.  Any content in these directories will be removed as well.
 
 =back
 
@@ -58,13 +61,27 @@ Exclude files that contain I<item> anywhere in their filename from being
 deleted, even if they would normally be deleted. You may use this option
 multiple times to build up a list of things to exclude.
 
-=item I<file> ...
+=item I<path> ...
 
-Delete these I<file>s too.
+Delete these I<path>s too.
+
+Note that directories passed as arguments B<must> end with a trailing
+slash.  Any content in these directories will be removed as well.
 
 =back
 
 =cut
+
+if ( not -f 'debian/compat' and not $ENV{'DH_COMPAT'}) {
+	# Temporary work around - Permit a missing compat to work with
+	# cdbs's feature of auto-creating a d/compat file.
+	#  - Auto-bump to compat 5 to match cdbs (Not that it matters a lot,
+	#    since there is no compat conditions for 4 or less)
+	warning("Pretending DH_COMPAT was set to 5");
+	warning(" - this is a temporary measure to avoid FTBFS in packages");
+	warning("   relying on cdbs to set debian/compat to 5 during the build");
+	$ENV{'DH_COMPAT'} = 5;
+}
 
 init(options => {
 	"dirs-only" => \$dh{D_FLAG},
@@ -75,6 +92,9 @@ if ($dh{K_FLAG}) {
 	# dh_prep will be emulated (mostly) by the code below.
 	warning("dh_clean -k is deprecated; use dh_prep instead");
 }
+
+# Remove the debhelper stamp file
+doit('rm', '-f', 'debian/debhelper-build-stamp') if not $dh{D_FLAG};
 
 foreach my $package (@{$dh{DOPACKAGES}}) {
 	my $tmp=tmpdir($package);
@@ -93,32 +113,42 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 		unless excludefile($tmp);
 }
 
-# Remove internal state data
-doit('rm', '-rf', 'debian/.debhelper/');
+
+if (not $dh{D_FLAG}) {
+	# Restore all files in our bucket (before we delete said bucket)
+	restore_all_files();
+
+	# Remove internal state data
+	doit('rm', '-rf', 'debian/.debhelper/');
+}
+
 
 # Remove all debhelper logs.
 if (! $dh{D_FLAG} && ! $dh{K_FLAG}) {
 	complex_doit("rm","-f","debian/*.debhelper.log");
-	if (compat(1)) {
-		doit("rm","-f","debian/debhelper.log");
-	}
 }
 
 if (! $dh{D_FLAG}) {
+	my (@clean_files, @clean_dirs);
 	if (@ARGV) {
-		doit("rm","-f","--",@ARGV);
+		push(@clean_files, grep { !m@/$@ } @ARGV);
+		push(@clean_dirs, grep { m@/$@ } @ARGV);
 	}
 
 	if (! $dh{K_FLAG}) {
 		if (!compat(6) && -e "debian/clean") {
 			my @clean=grep { ! excludefile($_) }
-				filearray("debian/clean", ".");
-			doit("rm","-f","--",@clean) if @clean;
+			filearray("debian/clean", ".");
+			push(@clean_files, grep { !m@/$@ } @clean);
+			push(@clean_dirs, grep { m@/$@ } @clean);
 		}
 
 		doit("rm","-f","debian/files")
 			unless excludefile("debian/files");
 	}
+
+	doit('rm', '-f', '--', @clean_files) if @clean_files;
+	doit('rm', '-fr', '--', @clean_dirs) if @clean_dirs;
 
 	# See if some files that would normally be deleted are excluded.
 	my $find_options='';
@@ -141,7 +171,7 @@ if (! $dh{D_FLAG}) {
 		\\( -type d -a -name autom4te.cache -prune -exec rm -rf {} + \\) \\)");
 }
 
-doit('rm', '-rf', 'debian/tmp') if -x 'debian/tmp' && ! compat(1) &&
+doit('rm', '-rf', 'debian/tmp') if -x 'debian/tmp' &&
                                    ! excludefile("debian/tmp");
 
 if (!compat(6) && !$dh{K_FLAG}) {
