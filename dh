@@ -287,6 +287,11 @@ if (compat(8, 1)) {
 	# (and comes first so python-central loads later and can disable it).
 	unshift @ARGV, "--with=python-support";
 }
+if (not compat(9, 1)) {
+	# Enable autoreconf'ing by default in compat 10 or later.  Use the
+	# sequence add-on so existing --without=autoreconf
+	unshift(@ARGV, "--with=autoreconf");
+}
 		
 init(options => {
 		"until=s" => \$dh{UNTIL},
@@ -408,9 +413,7 @@ my @i = (qw{
 	dh_link
 	dh_installwm
 	dh_installxfonts
-},
-	optional_command('dh_strip_nondeterminism'),
-qw{
+	dh_strip_nondeterminism
 	dh_compress
 	dh_fixperms
 });
@@ -714,12 +717,16 @@ foreach my $i (0..$stoppoint) {
 		next;
 	}
 	if (my $stamp_file = stamp_target($command)) {
-		my @contents;
+		my %seen;
+		next if $dh{NO_ACT};
 		open(my $fd, '+>>', $stamp_file) or error("open($stamp_file, rw) failed: $!");
 		# Seek to the beginning
 		seek($fd, 0, 0) or error("seek($stamp_file) failed: $!");
-		@contents = map { chomp } <$fd>;
-		for my $pkg (@todo) {
+		while (my $line = <$fd>) {
+			chomp($line);
+			$seen{$line} = 1;
+		}
+		for my $pkg (grep { not exists $seen{$_} } @todo) {
 			print {$fd} "$pkg\n";
 		}
 		close($fd) or error("close($stamp_file) failed: $!");
@@ -1014,10 +1021,16 @@ sub can_skip {
 
 	foreach my $package (@packages) {
 		foreach my $skipinfo (@skipinfo) {
-			if ($skipinfo=~/^tmp\((.*)\)$/) {
-				my $need=$1;
-				my $tmp=tmpdir($package);
-				return 0 if -e "$tmp/$need";
+			if ($skipinfo=~/^([a-zA-Z0-9-_]+)\((.*)\)$/) {
+				my $type = $1;
+				my $need = $2;
+				if ($type eq 'tmp') {
+					my $tmp = tmpdir($package);
+					return 0 if -e "$tmp/$need";
+				} else {
+					# Unknown hint - make no assumptions
+					return 0;
+				}
 			}
 			elsif (pkgfile($package, $skipinfo) ne '') {
 				return 0;
@@ -1025,18 +1038,6 @@ sub can_skip {
 		}
 	}
 	return 1;
-}
-
-sub optional_command {
-	my ($command) = @_;
-
-	foreach my $dir (split(':', $ENV{'PATH'})) {
-		if (open(my $h, '<', "$dir/$command")) {
-			close($h);
-			return ($command);
-		}
-	}
-	return;
 }
 
 sub extract_skipinfo {

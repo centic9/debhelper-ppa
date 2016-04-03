@@ -19,8 +19,10 @@ B<dh_makeshlibs> [S<I<debhelper options>>] [B<-m>I<major>] [B<-V>I<[dependencies
 B<dh_makeshlibs> is a debhelper program that automatically scans for shared
 libraries, and generates a shlibs file for the libraries it finds.
 
-It also adds a call to ldconfig in the F<postinst> and F<postrm> scripts (in
-v3 mode and above only) to any packages in which it finds shared libraries.
+It will also ensure that ldconfig is invoked during install and removal when
+it finds shared libraries.  Since debhelper 9.20151004, this is done via a
+dpkg trigger.  In older versions of debhelper, B<dh_makeshlibs> would
+generate a maintainer script for this purpose.
 
 =head1 FILES
 
@@ -143,7 +145,7 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 	
 	my $tmp=tmpdir($package);
 
-	my %seen;
+	my (%seen, $unversioned_so);
 	my $need_ldconfig = 0;
 	my $shlibs_file = pkgfile($package, 'shlibs');
 
@@ -165,15 +167,17 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 		my ($library, $major);
 		push @lib_files, $_;
 		my $ret=`$objdump -p $_`;
-		if ($ret=~m/\s+SONAME\s+(.+)\.so\.(.+)/) {
+		if ($ret=~m/\s+SONAME\s+(.*)\.so\.(.*)/) {
 			# proper soname format
 			$library=$1;
 			$major=$2;
 		}
-		elsif ($ret=~m/\s+SONAME\s+(.+)-(.+)\.so/) {
+		elsif ($ret=~m/\s+SONAME\s+(.*)-(\d.*)\.so/) {
 			# idiotic crap soname format
 			$library=$1;
 			$major=$2;
+		} elsif ($ret =~ m/\s+SONAME\s+(?:.*)\.so/) {
+			$unversioned_so = 1;
 		}
 
 		if (defined($dh{M_PARAMS}) && $dh{M_PARAMS} ne '') {
@@ -208,10 +212,10 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 			}
 		}
 		if (defined($library) && defined($major) && defined($deps) &&
-		    $library ne '' && $major ne '' && $deps ne '') {
-		    	$need_ldconfig=1;
-		    	# Prevent duplicate lines from entering the file.
-		    	my $line="$library $major $deps";
+		      $library ne '' && $major ne '' && $deps ne '') {
+			$need_ldconfig=1;
+			# Prevent duplicate lines from entering the file.
+			my $line="$library $major $deps";
 			if (! $seen{$line}) {
 				$seen{$line}=1;
 				complex_doit("echo '$line' >>$tmp/DEBIAN/shlibs");
@@ -229,12 +233,6 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 	# Write udeb: lines last.
 	foreach (@udeb_lines) {
 		complex_doit("echo '$_' >>$tmp/DEBIAN/shlibs");
-	}
-
-	# Historically, --noscripts would disable the creation of
-	# maintscripts for calling ldconfig.
-	if (! $dh{NOSCRIPTS} && $need_ldconfig) {
-		autotrigger($package, 'activate-noawait', 'ldconfig');
 	}
 
 	if ($shlibs_file) {
@@ -271,7 +269,19 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 
 		if (-f "$tmp/DEBIAN/symbols" and -s _ == 0) {
 			doit("rm", "-f", "$tmp/DEBIAN/symbols");
+		} elsif ($unversioned_so) {
+			# There are a few "special" libraries (e.g. nss/nspr)
+			# which do not have versined SONAMES.  However the
+			# maintainer provides a symbols file for them and we can
+			# then use that to add an ldconfig trigger.
+			$need_ldconfig = 1;
 		}
+	}
+
+	# Historically, --noscripts would disable the creation of
+	# maintscripts for calling ldconfig.
+	if (! $dh{NOSCRIPTS} && $need_ldconfig) {
+		autotrigger($package, 'activate-noawait', 'ldconfig');
 	}
 }
 

@@ -169,8 +169,6 @@ if ($dh{MIGRATE_DBGSYM} and not $dh{ENABLE_DBGSYM}) {
 	error("--dbgsym-migration and --no-automatic-dbgsym are mutually exclusive");
 }
 
-$dh{ENABLE_DBGSYM} = 0 if not $ENV{'DH_BUILD_DDEBS'};
-
 # This variable can be used to turn off stripping (see Policy).
 if (get_buildoption('nostrip')) {
 	exit;
@@ -244,7 +242,7 @@ sub testfile {
 }
 
 sub make_debug {
-	my ($file, $tmp, $desttmp, $use_build_id, $package) = @_;
+	my ($file, $tmp, $desttmp, $use_build_id) = @_;
 
 	# Don't try to copy debug symbols out if the file is already
 	# stripped.
@@ -320,10 +318,13 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 			$debugtmp=tmpdir($package."-dbg");
 		}
 	}
-	if ($dh{ENABLE_DBGSYM} and not $keep_debug and package_arch($package) ne 'all') {
+	# Temporary workaround: Do not build dbgsym packages for udebs as
+	# dpkg-gencontrol and dpkg-deb does not agree on the file
+	# extension.
+	if ($dh{ENABLE_DBGSYM} and not $keep_debug and package_arch($package) ne 'all' and not is_udeb($package)) {
 		# Avoid creating a dbgsym that would clash with a registered
 		# package or looks like a manual -dbg package.
-		if (!$all_packages{"${package}-dbgsym"} or $package =~ m/-dbg$/) {
+		if (not $all_packages{"${package}-dbgsym"} or $package =~ m/-dbg$/) {
 			$debugtmp = "debian/.debhelper/${package}/dbgsym-root";
 			$keep_debug = 1;
 			$use_build_id = 2;
@@ -333,7 +334,7 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 	find(\&testfile,$tmp);
 
 	foreach (@shared_libs) {
-		my $debug_path = make_debug($_, $tmp, $debugtmp, $use_build_id, $package) if $keep_debug;
+		my $debug_path = make_debug($_, $tmp, $debugtmp, $use_build_id) if $keep_debug;
 		# Note that all calls to strip on shared libs
 		# *must* include the --strip-unneeded.
 		doit($strip,"--remove-section=.comment",
@@ -342,7 +343,7 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 	}
 	
 	foreach (@executables) {
-		my $debug_path = make_debug($_, $tmp, $debugtmp, $use_build_id, $package) if $keep_debug;
+		my $debug_path = make_debug($_, $tmp, $debugtmp, $use_build_id) if $keep_debug;
 		doit($strip,"--remove-section=.comment",
 			"--remove-section=.note",$_);
  		attach_debug($_, $debug_path) if defined $debug_path;

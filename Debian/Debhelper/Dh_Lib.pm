@@ -202,7 +202,6 @@ sub inhibit_log {
 # shell, escaping metacharacters and quoting arguments that contain spaces.
 sub escape_shell {
 	my @args=@_;
-	my $line="";
 	my @ret;
 	foreach my $word (@args) {
 		if ($word=~/\s/) {
@@ -655,7 +654,7 @@ sub autoscript_sed {
 
 		if (not exists($VALID_TRIGGER_TYPES{$trigger_type})) {
 			require Carp;
-			confess("Invalid/unknown trigger ${trigger_type}");
+			Carp::confess("Invalid/unknown trigger ${trigger_type}");
 		}
 		return if $dh{NO_ACT};
 
