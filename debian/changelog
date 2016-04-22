@@ -1,3 +1,17 @@
+debhelper (9.20160403ubuntu1) yakkety; urgency=medium
+
+  * Merge from Debian unstable.  Remaining changes:
+    - autoscripts/*-init*: Test for /etc/init/*.conf where necessary.
+      (Must be kept as long as we support system upstart on touch.)
+    - dh_installchangelogs: Do not install upstream changelog in compat
+      level 7.  This floods packages with huge upstream changelogs which
+      take precious CD space.
+    - dh_strip: Revert commit f1a803456 to disable ddebs generation by
+      default.  This first needs adjustments in Launchpad and ddebs.u.c., and
+      dropping pkg-create-dbgsym.
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Fri, 22 Apr 2016 16:07:52 +0200
+
 debhelper (9.20160403) unstable; urgency=medium
 
   * d/control: Requre dh-autoreconf (>= 12) to ensure
@@ -97,6 +111,38 @@ debhelper (9.20160306) unstable; urgency=medium
 
  -- Niels Thykier <niels@thykier.net>  Sun, 06 Mar 2016 13:14:43 +0000
 
+debhelper (9.20160115ubuntu3) xenial; urgency=medium
+
+  * Backport upstream commit 9ca73a0a ("Pass -a to grep to handle
+    substvars with unicode content gracefully") to fix build-failure
+    with php-mf2 (LP: #1564492, Closes #815620).
+
+ -- Nishanth Aravamudan <nish.aravamudan@canonical.com>  Thu, 31 Mar 2016 08:33:23 -0700
+
+debhelper (9.20160115ubuntu2) xenial; urgency=medium
+
+  * dh-strip: Adjust reversion of commit f1a803456 to account for the recent
+    ENABLE_DDEBS → ENABLE_DBGSYM rename. This actually disables -dbgsym
+    generation by dh_strip by default again. (LP: #1535949)
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Wed, 20 Jan 2016 07:58:09 +0100
+
+debhelper (9.20160115ubuntu1) xenial; urgency=medium
+
+  * Merge from Debian unstable.  Remaining changes:
+    - autoscripts/*-init*: Test for /etc/init/*.conf where necessary.
+    - dh_installchangelogs: Do not install upstream changelog in compat
+      level 7.  This floods packages with huge upstream changelogs which
+      take precious CD space.
+    - dh_installinit: Add dependency to lsb-base >= 4.1+Debian11ubuntu7 that
+      provides the upstart LSB hook, to avoid upgrade breakage. This change
+      can be dropped after 16.04 LTS.
+    - dh_strip: Revert commit f1a803456 to disable ddebs generation by
+      default.  This first needs adjustments in Launchpad and ddebs.u.c., and
+      dropping pkg-create-dbgsym.
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Tue, 19 Jan 2016 19:55:45 +0100
+
 debhelper (9.20160115) unstable; urgency=medium
 
   * Fix brown paper bag bug that caused many packages to
@@ -138,6 +184,22 @@ debhelper (9.20160114) unstable; urgency=low
 
  -- Niels Thykier <niels@thykier.net>  Thu, 14 Jan 2016 22:01:03 +0000
 
+debhelper (9.20151225ubuntu1) xenial; urgency=medium
+
+  * Merge from Debian unstable.  Remaining changes:
+    - autoscripts/*-init*: Test for /etc/init/*.conf where necessary.
+    - dh_installchangelogs: Do not install upstream changelog in compat
+      level 7.  This floods packages with huge upstream changelogs which
+      take precious CD space.
+    - dh_installinit: Add dependency to lsb-base >= 4.1+Debian11ubuntu7 that
+      provides the upstart LSB hook, to avoid upgrade breakage. This change
+      can be dropped after 16.04 LTS.
+  * dh_strip: Revert commit f1a803456 to disable ddebs generation by default.
+    This first needs adjustments in Launchpad and ddebs.u.c., and dropping
+    pkg-create-dbgsym.
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 04 Jan 2016 11:07:56 +0100
+
 debhelper (9.20151225) unstable; urgency=medium
 
   * dh_installmanpages: Fix call to getpackages.  Thanks to
@@ -176,6 +238,21 @@ debhelper (9.20151219) unstable; urgency=medium
 
  -- Niels Thykier <niels@thykier.net>  Sat, 19 Dec 2015 22:01:53 +0000
 
+debhelper (9.20151126ubuntu1) xenial; urgency=medium
+
+  * Merge from Debian unstable.  Remaining changes:
+    - autoscripts/*-init*: Test for /etc/init/*.conf where necessary. This
+      uses the #SCRIPT# macro twice, thus in dh_installinit, replace all
+      occurrences of that not just the first one.
+    - dh_installchangelogs: Do not install upstream changelog in compat
+      level 7.  This floods packages with huge upstream changelogs which
+      take precious CD space.
+    - dh_installinit: Add dependency to lsb-base >= 4.1+Debian11ubuntu7 that
+      provides the upstart LSB hook, to avoid upgrade breakage. This change
+      can be dropped after 16.04 LTS.
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Sat, 28 Nov 2015 12:57:41 +0100
+
 debhelper (9.20151126) unstable; urgency=medium
 
   * dh_compress: Apply patch from Michael Biebl to skip
@@ -185,6 +262,37 @@ debhelper (9.20151126) unstable; urgency=medium
     Closes: #806276)
 
  -- Niels Thykier <niels@thykier.net>  Thu, 26 Nov 2015 18:06:06 +0100
+
+debhelper (9.20151117ubuntu2) xenial; urgency=medium
+
+  * autoscripts/postinst-init: Fix merge error that caused dh_installinit to
+    generate broken postinsts.
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Wed, 25 Nov 2015 06:05:07 +0100
+
+debhelper (9.20151117ubuntu1) xenial; urgency=medium
+
+  * Merge from Debian unstable.  Remaining changes:
+    - autoscripts/*-init*: Test for /etc/init/*.conf where necessary. This
+      uses the #SCRIPT# macro twice, thus in dh_installinit, replace all
+      occurrences of that not just the first one.
+    - dh_installchangelogs: Do not install upstream changelog in compat
+      level 7.  This floods packages with huge upstream changelogs which
+      take precious CD space.
+    - dh_installinit: Add dependency to lsb-base >= 4.1+Debian11ubuntu7 that
+      provides the upstart LSB hook, to avoid upgrade breakage. This change
+      can be dropped after 16.04 LTS.
+  * Dropped Ubuntu changes:
+    - dh_installudev: Change default rules.d symlink priority to 40. This
+      change has been pointless for a long time, Debian and Ubuntu use the
+      upstream udev rules.
+    - dh_installinit: Add no-op --upstart-only option for compatibility. The
+      remaining packages that used this got fixed. (LP: #1519228)
+    - autoscripts/preinst-upstart-compatibility: Handle upgrades from older
+      versions that created the /lib/init/upstart-job symlink. This was done
+      in saucy and thus finished in trusty.
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Tue, 24 Nov 2015 08:43:50 +0100
 
 debhelper (9.20151117) unstable; urgency=medium
 
@@ -243,6 +351,28 @@ debhelper (9.20151116) unstable; urgency=medium
     (Closes: #805218)
 
  -- Niels Thykier <niels@thykier.net>  Mon, 16 Nov 2015 21:05:53 +0100
+
+debhelper (9.20151005ubuntu2) xenial; urgency=medium
+
+  * Put back dh-strip-nondeterminism dependency, MIR got approved.
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Tue, 03 Nov 2015 13:32:54 -0600
+
+debhelper (9.20151005ubuntu1) xenial; urgency=medium
+
+  * Merge from Debian unstable.  Remaining changes:
+    - autoscripts/preinst-upstart-compatibility: Handle upgrades from older
+      versions that created the /lib/init/upstart-job symlink.
+    - autoscripts/*-init*: Test for /etc/init/*.conf where necessary.
+    - dh_installinit: Add no-op --upstart-only option for compatibility.
+    - dh_installudev: Change default rules.d symlink priority to 40.
+    - dh_installchangelogs: Do not install upstream changelog in compat
+      level 7.  This floods packages with huge upstream changelogs which
+      take precious CD space.
+  * Drop dh-strip-nondeterminism dependency for now, until the MIR gets
+    processed (LP: #1508999)
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 22 Oct 2015 17:52:54 +0200
 
 debhelper (9.20151005) unstable; urgency=medium
 
@@ -356,6 +486,30 @@ debhelper (9.20151004) unstable; urgency=medium
 
  -- Niels Thykier <niels@thykier.net>  Sun, 04 Oct 2015 17:34:16 +0200
 
+debhelper (9.20150811ubuntu2) wily; urgency=medium
+
+  * dh_movefiles: Expand globs in arguments passed in all
+    compat levels (and not just compat 1 and 2).
+    (Closes: #800332) (cherry-picked from Debian)
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 05 Oct 2015 14:33:20 +0200
+
+debhelper (9.20150811ubuntu1) wily; urgency=medium
+
+  * Merge from Debian unstable.  Remaining changes:
+    - autoscripts/preinst-upstart-compatibility: Handle upgrades from older
+      versions that created the /lib/init/upstart-job symlink.
+    - autoscripts/*-init*: Test for /etc/init/*.conf where necessary.
+    - dh_installinit: Add no-op --upstart-only option for compatibility.
+    - dh_installudev: Change default rules.d symlink priority to 40.
+    - dh_installchangelogs: Do not install upstream changelog in compat
+      level 7.  This floods packages with huge upstream changelogs which
+      take precious CD space.
+  * Drop dependency on dh-apparmor. This was a transitional measure in 2012,
+    if there are still packages left that require it let's fix them properly.
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Wed, 12 Aug 2015 16:15:58 +0200
+
 debhelper (9.20150811) unstable; urgency=medium
 
   * d/changelog: Add missing entry for dh_md5sums/#786695 in
@@ -449,6 +603,21 @@ debhelper (9.20150519+ddebs) experimental; urgency=medium
     creating some of these manually.
 
  -- Niels Thykier <niels@thykier.net>  Tue, 19 May 2015 21:56:55 +0200
+
+debhelper (9.20150507ubuntu1) wily; urgency=low
+
+  * Merge from Debian unstable.  Remaining changes:
+    - Depend on dh-apparmor.
+    - autoscripts/preinst-upstart-compatibility: Handle upgrades from older
+      versions that created the /lib/init/upstart-job symlink.
+    - autoscripts/*-init*: Test for /etc/init/*.conf where necessary.
+    - dh_installinit: Add no-op --upstart-only option for compatibility.
+    - dh_installudev: Change default rules.d symlink priority to 40.
+    - dh_installchangelogs: Do not install upstream changelog in compat
+      level 7.  This floods packages with huge upstream changelogs which
+      take precious CD space.
+
+ -- Iain Lane <iain.lane@canonical.com>  Thu, 14 May 2015 17:18:00 +0100
 
 debhelper (9.20150507) unstable; urgency=medium
 
@@ -607,6 +776,21 @@ debhelper (9.20150501) unstable; urgency=medium
 
  -- Niels Thykier <niels@thykier.net>  Fri, 01 May 2015 14:53:16 +0200
 
+debhelper (9.20150101ubuntu1) vivid; urgency=low
+
+  * Merge from Debian unstable.  Remaining changes:
+    - Depend on dh-apparmor.
+    - autoscripts/preinst-upstart-compatibility: Handle upgrades from older
+      versions that created the /lib/init/upstart-job symlink.
+    - autoscripts/*-init*: Test for /etc/init/*.conf where necessary.
+    - dh_installinit: Add no-op --upstart-only option for compatibility.
+    - dh_installudev: Change default rules.d symlink priority to 40.
+    - dh_installchangelogs: Do not install upstream changelog in compat
+      level 7.  This floods packages with huge upstream changelogs which
+      take precious CD space.
+
+ -- Iain Lane <iain@orangesquash.org.uk>  Wed, 07 Jan 2015 09:48:12 +0000
+
 debhelper (9.20150101) unstable; urgency=medium
 
   [ Niels Thykier ]
@@ -656,6 +840,21 @@ debhelper (9.20141107) unstable; urgency=medium
 
  -- Joey Hess <joeyh@debian.org>  Fri, 07 Nov 2014 17:15:10 -0400
 
+debhelper (9.20141022ubuntu1) vivid; urgency=medium
+
+  * Merge from Debian unstable.  Remaining changes:
+    - Depend on dh-apparmor.
+    - autoscripts/preinst-upstart-compatibility: Handle upgrades from older
+      versions that created the /lib/init/upstart-job symlink.
+    - autoscripts/*-init*: Test for /etc/init/*.conf where necessary.
+    - dh_installinit: Add no-op --upstart-only option for compatibility.
+    - dh_installudev: Change default rules.d symlink priority to 40.
+    - dh_installchangelogs: Do not install upstream changelog in compat
+      level 7.  This floods packages with huge upstream changelogs which
+      take precious CD space.
+
+ -- Michael Vogt <michael.vogt@ubuntu.com>  Thu, 30 Oct 2014 10:44:35 +0100
+
 debhelper (9.20141022) unstable; urgency=low
 
   * dh_installdeb: Sort conffile list so there is a stable order for
@@ -676,6 +875,21 @@ debhelper (9.20141010) unstable; urgency=medium
     Closes: #763766
 
  -- Joey Hess <joeyh@debian.org>  Fri, 10 Oct 2014 17:42:56 -0400
+
+debhelper (9.20141003ubuntu1) vivid; urgency=medium
+
+  * Resynchronise with Debian.  Remaining changes:
+    - Depend on dh-apparmor.
+    - autoscripts/preinst-upstart-compatibility: Handle upgrades from older
+      versions that created the /lib/init/upstart-job symlink.
+    - autoscripts/*-init*: Test for /etc/init/*.conf where necessary.
+    - dh_installinit: Add no-op --upstart-only option for compatibility.
+    - dh_installudev: Change default rules.d symlink priority to 40.
+    - dh_installchangelogs: Do not install upstream changelog in compat
+      level 7.  This floods packages with huge upstream changelogs which
+      take precious CD space.
+
+ -- Colin Watson <cjwatson@ubuntu.com>  Thu, 23 Oct 2014 17:01:31 -0400
 
 debhelper (9.20141003) unstable; urgency=medium
 
@@ -703,6 +917,38 @@ debhelper (9.20140809) unstable; urgency=medium
 
  -- Joey Hess <joeyh@debian.org>  Sat, 09 Aug 2014 11:24:41 -0400
 
+debhelper (9.20140613ubuntu2) utopic; urgency=medium
+
+  * Remove ubuntu delta and thus call update-rc.d remove in postrm, upon
+    removing init.d scripts even if a matching upstart job is
+    present. (LP: #1326327)
+
+ -- Dimitri John Ledkov <xnox@ubuntu.com>  Thu, 31 Jul 2014 10:02:24 +0100
+
+debhelper (9.20140613ubuntu1) utopic; urgency=medium
+
+  * Resynchronise with Debian.  Remaining changes:
+    - Depend on dh-apparmor.
+    - autoscripts/preinst-upstart-compatibility: Handle upgrades from older
+      versions that created the /lib/init/upstart-job symlink.
+    - autoscripts/*-init*: Test for /etc/init/*.conf where necessary.
+    - dh_installinit: Add no-op --upstart-only option for compatibility.
+    - dh_installudev: Change default rules.d symlink priority to 40.
+    - dh_installchangelogs: Do not install upstream changelog in compat
+      level 7.  This floods packages with huge upstream changelogs which
+      take precious CD space.
+
+  * Drop changes since last merge, due to support init.d scripts and
+    upstart jobs co-installation:
+    - dh_installinit, autoscripts/postinst-upstart-replace: Prefer upstart
+      jobs where they exist.
+    - autoscripts/postinst-init*: Only call update-rc.d when there's no
+      upstart job.
+  
+  * Execute po4a man/po4a/po4a.cfg to update manpages.
+
+ -- Dimitri John Ledkov <xnox@ubuntu.com>  Mon, 07 Jul 2014 18:25:48 +0100
+
 debhelper (9.20140613) unstable; urgency=medium
 
   * Pass --disable-silent-rules in dh_auto_configure if DH_VERBOSE is set.
@@ -711,6 +957,67 @@ debhelper (9.20140613) unstable; urgency=medium
   * dh_installinit: Fix uninitialized value warning when --name is used.
 
  -- Joey Hess <joeyh@debian.org>  Fri, 13 Jun 2014 11:50:09 -0400
+
+debhelper (9.20140228ubuntu6) utopic; urgency=medium
+
+  * Fix the previous upload, by not calling update-rc.d on packages that
+    just have upstart job without init.d.
+
+ -- Dimitri John Ledkov <xnox@ubuntu.com>  Thu, 29 May 2014 11:50:53 +0100
+
+debhelper (9.20140228ubuntu5) utopic; urgency=medium
+
+  * Enable calling update-rc.d, if an init.d script is installed,
+    regardless presence of the upstart jobs. (LP: #1312836)
+
+ -- Dimitri John Ledkov <xnox@ubuntu.com>  Wed, 28 May 2014 11:00:44 +0200
+
+debhelper (9.20140228ubuntu4) utopic; urgency=medium
+
+  * Re-introduce the dh_installinit change but this time depending on
+    lsb-base where the hook was moved. This should prevent upgrade breakage.
+
+ -- Stéphane Graber <stgraber@ubuntu.com>  Tue, 27 May 2014 16:21:35 +0200
+
+debhelper (9.20140228ubuntu3) utopic; urgency=medium
+
+  * Revert the last change as it's causing apt upgrade resolution
+    failure breaking all buildds.
+
+ -- Stéphane Graber <stgraber@ubuntu.com>  Tue, 27 May 2014 15:37:20 +0200
+
+debhelper (9.20140228ubuntu2) utopic; urgency=medium
+
+  * Add upstart versioned dependency on upstart that provides lsb hook, to
+    make sure sourcing lsb init-functions triggers transparent launching
+    of the upstart job instead. (LP: #1323274).
+
+ -- Dimitri John Ledkov <xnox@ubuntu.com>  Mon, 26 May 2014 14:39:04 +0200
+
+debhelper (9.20140228ubuntu1) utopic; urgency=medium
+
+  * Resynchronise with Debian.  Remaining changes:
+    - Depend on dh-apparmor.
+    - dh_installinit, autoscripts/postinst-upstart-replace: Prefer upstart
+      jobs where they exist.
+    - autoscripts/preinst-upstart-compatibility: Handle upgrades from older
+      versions that created the /lib/init/upstart-job symlink.
+    - autoscripts/postinst-init*: Only call update-rc.d when there's no
+      upstart job.
+    - autoscripts/*-init*: Test for /etc/init/*.conf where necessary.
+    - dh_installinit: Add no-op --upstart-only option for compatibility.
+    - dh_installudev: Change default rules.d symlink priority to 40.
+    - dh_installchangelogs: Do not install upstream changelog in compat
+      level 7.  This floods packages with huge upstream changelogs which
+      take precious CD space.
+
+  * Drop change required for upgrades to trusty:
+    - preserve the change that adds versioned dependency on sysv-rc to
+      support precise->trusty upgrades.
+  
+  * Execute po4a man/po4a/po4a.cfg to update manpages.
+
+ -- Dimitri John Ledkov <xnox@ubuntu.com>  Fri, 09 May 2014 13:01:47 +0100
 
 debhelper (9.20140228) unstable; urgency=medium
 
@@ -741,6 +1048,27 @@ debhelper (9.20140227) unstable; urgency=medium
 
  -- Joey Hess <joeyh@debian.org>  Thu, 27 Feb 2014 11:49:56 -0400
 
+debhelper (9.20131227ubuntu1) trusty; urgency=medium
+
+  * Resynchronise with Debian.  Remaining changes:
+    - Depend on dh-apparmor.
+    - dh_installinit, autoscripts/postinst-upstart-replace: Prefer upstart
+      jobs where they exist.
+    - autoscripts/preinst-upstart-compatibility: Handle upgrades from older
+      versions that created the /lib/init/upstart-job symlink.
+    - autoscripts/postinst-init*: Only call update-rc.d when there's no
+      upstart job.
+    - autoscripts/*-init*: Test for /etc/init/*.conf where necessary.
+    - dh_installinit: Add no-op --upstart-only option for compatibility.
+    - dh_installudev: Change default rules.d symlink priority to 40.
+    - dh_installchangelogs: Do not install upstream changelog in compat
+      level 7.  This floods packages with huge upstream changelogs which
+      take precious CD space.
+    - preserve the change that adds versioned dependency on sysv-rc to
+      support precise->trusty upgrades.
+
+ -- Dimitri John Ledkov <xnox@ubuntu.com>  Wed, 19 Feb 2014 14:18:57 +0000
+
 debhelper (9.20131227) unstable; urgency=medium
 
   [ Guillem Jover ]
@@ -763,6 +1091,34 @@ debhelper (9.20131213) unstable; urgency=low
     Closes: #731723
 
  -- Joey Hess <joeyh@debian.org>  Fri, 13 Dec 2013 14:46:26 -0400
+
+debhelper (9.20131127ubuntu2) trusty; urgency=low
+
+  * Revert 9.20131110
+  * Additional changes:
+    - preserve the change that adds versioned dependency on sysv-rc to
+    support precise->trusty upgrades.
+
+ -- Dimitri John Ledkov <xnox@ubuntu.com>  Mon, 09 Dec 2013 17:13:25 +0000
+
+debhelper (9.20131127ubuntu1) trusty; urgency=low
+
+  * Resynchronise with Debian.  Remaining changes:
+    - Depend on dh-apparmor.
+    - dh_installinit, autoscripts/postinst-upstart-replace: Prefer upstart
+      jobs where they exist.
+    - autoscripts/preinst-upstart-compatibility: Handle upgrades from older
+      versions that created the /lib/init/upstart-job symlink.
+    - autoscripts/postinst-init*: Only call update-rc.d when there's no
+      upstart job.
+    - autoscripts/*-init*: Test for /etc/init/*.conf where necessary.
+    - dh_installinit: Add no-op --upstart-only option for compatibility.
+    - dh_installudev: Change default rules.d symlink priority to 40.
+    - dh_installchangelogs: Do not install upstream changelog in compat
+      level 7.  This floods packages with huge upstream changelogs which
+      take precious CD space.
+
+ -- Dmitrijs Ledkovs <xnox@ubuntu.com>  Mon, 09 Dec 2013 12:06:22 +0000
 
 debhelper (9.20131127) unstable; urgency=low
 
@@ -808,6 +1164,25 @@ debhelper (9.20131104) unstable; urgency=low
 
  -- Joey Hess <joeyh@debian.org>  Mon, 04 Nov 2013 15:34:21 -0400
 
+debhelper (9.20130921ubuntu1) trusty; urgency=low
+
+  * Resynchronise with Debian.  Remaining changes:
+    - Depend on dh-apparmor.
+    - dh_installinit, autoscripts/postinst-upstart-replace: Prefer upstart
+      jobs where they exist.
+    - autoscripts/preinst-upstart-compatibility: Handle upgrades from older
+      versions that created the /lib/init/upstart-job symlink.
+    - autoscripts/postinst-init*: Only call update-rc.d when there's no
+      upstart job.
+    - autoscripts/*-init*: Test for /etc/init/*.conf where necessary.
+    - dh_installinit: Add no-op --upstart-only option for compatibility.
+    - dh_installudev: Change default rules.d symlink priority to 40.
+    - dh_installchangelogs: Do not install upstream changelog in compat
+      level 7.  This floods packages with huge upstream changelogs which
+      take precious CD space.
+
+ -- Colin Watson <cjwatson@ubuntu.com>  Mon, 21 Oct 2013 09:28:05 +0100
+
 debhelper (9.20130921) unstable; urgency=low
 
   * dh: Call dh_installxfonts after dh_link, so that it will
@@ -838,6 +1213,25 @@ debhelper (9.20130720) unstable; urgency=low
 
  -- Joey Hess <joeyh@debian.org>  Tue, 20 Aug 2013 12:46:25 -0400
 
+debhelper (9.20130630ubuntu1) saucy; urgency=low
+
+  * Resynchronise with Debian.  Remaining changes:
+    - Depend on dh-apparmor.
+    - dh_installinit, autoscripts/postinst-upstart-replace: Prefer upstart
+      jobs where they exist.
+    - autoscripts/preinst-upstart-compatibility: Handle upgrades from older
+      versions that created the /lib/init/upstart-job symlink.
+    - autoscripts/postinst-init*: Only call update-rc.d when there's no
+      upstart job.
+    - autoscripts/*-init*: Test for /etc/init/*.conf where necessary.
+    - dh_installinit: Add no-op --upstart-only option for compatibility.
+    - dh_installudev: Change default rules.d symlink priority to 40.
+    - dh_installchangelogs: Do not install upstream changelog in compat
+      level 7.  This floods packages with huge upstream changelogs which
+      take precious CD space.
+
+ -- Colin Watson <cjwatson@ubuntu.com>  Mon, 01 Jul 2013 11:20:37 +0100
+
 debhelper (9.20130630) unstable; urgency=low
 
   * perl_build: Use -- long option names, for compatibility with
@@ -845,6 +1239,25 @@ debhelper (9.20130630) unstable; urgency=low
     (Thanks, gregor herrmann)
 
  -- Joey Hess <joeyh@debian.org>  Sun, 30 Jun 2013 14:20:51 -0400
+
+debhelper (9.20130626ubuntu1) saucy; urgency=low
+
+  * Resynchronise with Debian.  Remaining changes:
+    - Depend on dh-apparmor.
+    - dh_installinit, autoscripts/postinst-upstart-replace: Prefer upstart
+      jobs where they exist.
+    - autoscripts/preinst-upstart-compatibility: Handle upgrades from older
+      versions that created the /lib/init/upstart-job symlink.
+    - autoscripts/postinst-init*: Only call update-rc.d when there's no
+      upstart job.
+    - autoscripts/*-init*: Test for /etc/init/*.conf where necessary.
+    - dh_installinit: Add no-op --upstart-only option for compatibility.
+    - dh_installudev: Change default rules.d symlink priority to 40.
+    - dh_installchangelogs: Do not install upstream changelog in compat
+      level 7.  This floods packages with huge upstream changelogs which
+      take precious CD space.
+
+ -- Colin Watson <cjwatson@ubuntu.com>  Thu, 27 Jun 2013 12:59:50 +0100
 
 debhelper (9.20130626) unstable; urgency=low
 
@@ -869,6 +1282,25 @@ debhelper (9.20130605) unstable; urgency=low
 
  -- Joey Hess <joeyh@debian.org>  Wed, 05 Jun 2013 12:28:51 -0400
 
+debhelper (9.20130604ubuntu1) saucy; urgency=low
+
+  * Resynchronise with Debian.  Remaining changes:
+    - Depend on dh-apparmor.
+    - dh_installinit, autoscripts/postinst-upstart-replace: Prefer upstart
+      jobs where they exist.
+    - autoscripts/preinst-upstart-compatibility: Handle upgrades from older
+      versions that created the /lib/init/upstart-job symlink.
+    - autoscripts/postinst-init*: Only call update-rc.d when there's no
+      upstart job.
+    - autoscripts/*-init*: Test for /etc/init/*.conf where necessary.
+    - dh_installinit: Add no-op --upstart-only option for compatibility.
+    - dh_installudev: Change default rules.d symlink priority to 40.
+    - dh_installchangelogs: Do not install upstream changelog in compat
+      level 7.  This floods packages with huge upstream changelogs which
+      take precious CD space.
+
+ -- Colin Watson <cjwatson@ubuntu.com>  Wed, 05 Jun 2013 11:00:43 +0100
+
 debhelper (9.20130604) unstable; urgency=low
 
   * dh_installchangelogs: No longer automatically converts html changelogs.
@@ -884,6 +1316,25 @@ debhelper (9.20130604) unstable; urgency=low
     jobs. Closes: #709482
 
  -- Joey Hess <joeyh@debian.org>  Tue, 04 Jun 2013 11:27:29 -0400
+
+debhelper (9.20130518ubuntu1) saucy; urgency=low
+
+  * Resynchronise with Debian.  Remaining changes:
+    - Depend on dh-apparmor.
+    - dh_installinit, autoscripts/postinst-upstart-replace: Prefer upstart
+      jobs where they exist.
+    - autoscripts/preinst-upstart-compatibility: Handle upgrades from older
+      versions that created the /lib/init/upstart-job symlink.
+    - autoscripts/postinst-init*: Only call update-rc.d when there's no
+      upstart job.
+    - autoscripts/*-init*: Test for /etc/init/*.conf where necessary.
+    - dh_installinit: Add no-op --upstart-only option for compatibility.
+    - dh_installudev: Change default rules.d symlink priority to 40.
+    - dh_installchangelogs: Do not install upstream changelog in compat
+      level 7.  This floods packages with huge upstream changelogs which
+      take precious CD space.
+
+ -- Colin Watson <cjwatson@ubuntu.com>  Tue, 04 Jun 2013 11:46:28 +0100
 
 debhelper (9.20130518) unstable; urgency=low
 
@@ -976,6 +1427,44 @@ debhelper (9.20130504) unstable; urgency=low
 
  -- Joey Hess <joeyh@debian.org>  Sat, 04 May 2013 23:32:27 -0400
 
+debhelper (9.20120909ubuntu3) saucy; urgency=low
+
+  * Now that we no longer create /lib/init/upstart-job symlinks, fix the
+    init-related autoscript fragments to also test for /etc/init/*.conf
+    where necessary (LP: #1183807).
+
+ -- Colin Watson <cjwatson@ubuntu.com>  Fri, 24 May 2013 15:46:20 +0100
+
+debhelper (9.20120909ubuntu2) saucy; urgency=low
+
+  * Align upstart job handling with upstream debhelper: install both init
+    scripts and upstart jobs, and rely on the policy layer in invoke-rc.d
+    and our handling of update-rc.d to give the right behavior.
+  * Drops preinst-removeconffile, introduces preinst-upstart-compatibility
+    in its place.
+
+ -- Steve Langasek <steve.langasek@ubuntu.com>  Sat, 18 May 2013 18:20:03 -0500
+
+debhelper (9.20120909ubuntu1) raring; urgency=low
+
+  * Merge from Debian unstable, remaining changes:
+    - Depend on dh-apparmor.
+    - dh_installinit: Add --upstart-only and --onlyscripts-upstart modes.
+    - continue to use /lib/init/upstart-job symlinks in Ubuntu, since
+      insserv is not yet usable with upstart.
+    - Add autoscripts for above: postinst-upstart-replace,
+      preinst-removeconffile.
+    - autoscripts/postinst-init, autoscripts/postinst-init-restart: Only
+      call update-rc.d when there's no upstart job.
+    - autoscripts/postinst-init-nostart: also handle the upstart case;
+      otherwise we call update-rc.d to add, and again to remove!
+    - dh_installudev: Change default init.d symlink priority to 40.
+    - dh_installchangelogs: Do not install upstream changelog in compat
+      level 7.  This floods packages with huge upstream changelogs which
+      take precious CD space.
+
+ -- Adam Conrad <adconrad@ubuntu.com>  Wed, 07 Nov 2012 13:12:10 -0700
+
 debhelper (9.20120909) unstable; urgency=low
 
   * autoscript() can now be passed a perl sub to run to s/// lines of
@@ -997,6 +1486,29 @@ debhelper (9.20120830) unstable; urgency=low
     Closes: #681194
 
  -- Joey Hess <joeyh@debian.org>  Thu, 30 Aug 2012 11:04:10 -0400
+
+debhelper (9.20120608ubuntu1) quantal; urgency=low
+
+  * Merge from Debian unstable, remaining changes:
+    - Depend on dh-apparmor.
+    - dh_installinit: Add --upstart-only and --onlyscripts-upstart modes.
+    - continue to use /lib/init/upstart-job symlinks in Ubuntu, since
+      insserv is not yet usable with upstart.
+    - Add autoscripts for above: postinst-upstart-replace,
+      preinst-removeconffile.
+    - autoscripts/postinst-init, autoscripts/postinst-init-restart: Only
+      call update-rc.d when there's no upstart job.
+    - autoscripts/postinst-init-nostart: also handle the upstart case;
+      otherwise we call update-rc.d to add, and again to remove!
+    - dh_installudev: Change default init.d symlink priority to 40.
+    - dh_installchangelogs: Do not install upstream changelog in compat
+      level 7.  This floods packages with huge upstream changelogs which
+      take precious CD space.
+  * Dropped changes, superseded in Debian:
+    - Mark debhelper Multi-Arch: foreign, so it's recognized as satisfying
+      cross-dependencies and cross-build-dependencies.
+
+ -- Adam Conrad <adconrad@ubuntu.com>  Tue, 19 Jun 2012 14:25:04 -0600
 
 debhelper (9.20120608) unstable; urgency=low
 
@@ -1047,6 +1559,39 @@ debhelper (9.20120509) unstable; urgency=low
   * dh_install: Reorder documentation for clarity. Closes: #672109
 
  -- Joey Hess <joeyh@debian.org>  Wed, 09 May 2012 12:59:15 -0400
+
+debhelper (9.20120419ubuntu2) quantal; urgency=low
+
+  * dh_installinit: drop the --onlyscripts-upstart option, which was only
+    used temporarily for compatibility with some packages in karmic.
+
+ -- Steve Langasek <steve.langasek@ubuntu.com>  Sun, 29 Apr 2012 09:58:05 -0700
+
+debhelper (9.20120419ubuntu1) quantal; urgency=low
+
+  * Merge from Debian unstable, remaining changes:
+    - Depend on dh-apparmor.
+    - Mark debhelper Multi-Arch: foreign, so it's recognized as satisfying
+      cross-dependencies and cross-build-dependencies.
+    - dh_installinit: Add --upstart-only and --onlyscripts-upstart modes.
+    - continue to use /lib/init/upstart-job symlinks in Ubuntu, since
+      insserv is not yet usable with upstart.
+    - Add autoscripts for above: postinst-upstart-replace,
+      preinst-removeconffile.
+    - autoscripts/postinst-init, autoscripts/postinst-init-restart: Only
+      call update-rc.d when there's no upstart job.
+    - dh_installudev: Change default init.d symlink priority to 40.
+    - dh_installchangelogs: Do not install upstream changelog in compat
+      level 7.  This floods packages with huge upstream changelogs which
+      take precious CD space.
+  * Dropped changes, superseded in Debian:
+    - autoscripts postinst-upstart, postinst-upstart-restart, prerm-upstart,
+      prerm-upstart-norestart dropped, the logic has merged into the main
+      autoscripts.
+  * autoscripts/postinst-init-nostart: also handle the upstart case;
+    otherwise we call update-rc.d to add, and again to remove!
+
+ -- Steve Langasek <steve.langasek@ubuntu.com>  Sun, 29 Apr 2012 07:46:42 +0000
 
 debhelper (9.20120419) unstable; urgency=low
 
@@ -1115,6 +1660,40 @@ debhelper (9.20120311) unstable; urgency=low
 
  -- Joey Hess <joeyh@debian.org>  Sun, 11 Mar 2012 18:28:33 -0400
 
+debhelper (9.20120115ubuntu3) precise; urgency=low
+
+  * remove dh_apparmor and corresponding autoscripts and adjust debian/control
+    to Depends on dh-apparmor. This can be dropped once all packages that use
+    dh_apparmor Build-Depends on dh-apparmor.
+
+ -- Jamie Strandboge <jamie@ubuntu.com>  Fri, 02 Mar 2012 08:13:33 -0600
+
+debhelper (9.20120115ubuntu2) precise; urgency=low
+
+  * Make dh_apparmor executable again.
+
+ -- Colin Watson <cjwatson@ubuntu.com>  Tue, 24 Jan 2012 00:12:27 +0000
+
+debhelper (9.20120115ubuntu1) precise; urgency=low
+
+  * Resynchronise with Debian.  Remaining changes:
+    - Mark debhelper Multi-Arch: foreign, so it's recognized as satisfying
+      cross-dependencies and cross-build-dependencies.
+    - dh_installinit: Add --upstart-only and --onlyscripts-upstart modes.
+    - Add various autoscripts for above: postinst-upstart,
+      postinst-upstart-replace, postinst-upstart-restart, prerm-upstart,
+      prerm-upstart-norestart, preinst-removeconffile.
+    - autoscripts/postinst-init, autoscripts/postinst-init-restart: Only
+      call update-rc.d when there's no upstart job, which will let us get
+      rid of the separate postinst-upstart{,-restart} scripts.
+    - dh_installudev: Change default init.d symlink priority to 40.
+    - dh_installchangelogs: Do not install upstream changelog in compat
+      level 7.  This floods packages with huge upstream changelogs which
+      take precious CD space.
+    - Add dh_apparmor and autoscripts.
+
+ -- Colin Watson <cjwatson@ubuntu.com>  Mon, 23 Jan 2012 13:00:43 +0000
+
 debhelper (9.20120115) unstable; urgency=low
 
   * Finalized v9 mode, which is the new recommended default.
@@ -1176,6 +1755,29 @@ debhelper (8.9.10) unstable; urgency=low
 
  -- Joey Hess <joeyh@debian.org>  Wed, 16 Nov 2011 11:54:59 -0400
 
+debhelper (8.9.9ubuntu1) precise; urgency=low
+
+  * Merge from Debian testing, remaining changes:
+    - mark debhelper Multi-Arch: foreign, so it's recognized as satisfying
+      cross-dependencies and cross-build-dependencies.
+    - dh_installinit: Add --upstart-only and --onlyscripts-upstart modes.
+    - Add various autoscripts for above: postinst-upstart,
+      postinst-upstart-replace, postinst-upstart-restart,
+      prerm-upstart, prerm-upstart-norestart, preinst-removeconffile.
+    - autoscripts/postinst-init, autoscripts/postinst-init-restart: only
+      call update-rc.d when there's no upstart job, which will let us get
+      rid of the separate postinst-upstart{,-restart} scripts.
+    - dh_installudev: Change default init.d symlink priority to 40.
+    - dh_installchangelogs: Do not install upstream changelog in compat level
+      7. This floods packages with huge upstream changelogs which take
+      precious CD space.
+    - add dh_apparmor and autoscripts
+  * Dropped changes:
+    - debian/rules: set executable bit for dh_apparmor: fix this in the
+      source tarball instead, like it's set for all other scripts.
+
+ -- Steve Langasek <steve.langasek@ubuntu.com>  Wed, 16 Nov 2011 16:24:58 -0800
+
 debhelper (8.9.9) unstable; urgency=low
 
   * dh_auto_build: Use target architecture (not host architecture) 
@@ -1183,6 +1785,34 @@ debhelper (8.9.9) unstable; urgency=low
   * dh: Add dh_auto_configure parameter example. Closes: #645335
 
  -- Joey Hess <joeyh@debian.org>  Fri, 04 Nov 2011 17:01:58 -0400
+
+debhelper (8.9.8ubuntu2) precise; urgency=low
+
+  * autoscripts/postinst-init, autoscripts/postinst-init-restart: only call
+    update-rc.d when there's no upstart job, letting us get rid of the
+    separate postinst-upstart{,-restart} scripts.
+  * mark debhelper Multi-Arch: foreign, so it's recognized as satisfying
+    cross-dependencies and cross-build-dependencies.
+
+ -- Steve Langasek <steve.langasek@ubuntu.com>  Sat, 05 Nov 2011 00:41:42 -0400
+
+debhelper (8.9.8ubuntu1) precise; urgency=low
+
+  * Merge with Debian; remaining Ubuntu changes:
+    - dh_installinit: Add --upstart-only and --onlyscripts-upstart modes.
+    - Add various autoscripts for above: postinst-upstart,
+      postinst-upstart-replace, postinst-upstart-restart,
+      prerm-upstart, prerm-upstart-norestart, preinst-removeconffile.
+    - dh_installudev: Change default init.d symlink priority to 40.
+    - dh_installchangelogs: Do not install upstream changelog in compat level
+      7. This floods packages with huge upstream changelogs which take
+      precious CD space.
+    - add dh_apparmor and autoscripts
+    - debian/rules: set executable bit for dh_apparmor before actually running
+      dh build, that is in order to get the manpage built for dh_apparmor.
+    - dh_installinit: drop redundant definition of -O.
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Tue, 11 Oct 2011 06:36:38 +0200
 
 debhelper (8.9.8) unstable; urgency=low
 
@@ -1289,6 +1919,26 @@ debhelper (8.9.1) unstable; urgency=low
 
  -- Joey Hess <joeyh@debian.org>  Sun, 17 Jul 2011 16:31:27 -0400
 
+debhelper (8.9.0ubuntu1) oneiric; urgency=low
+
+  * Merge with Debian (LP: #801884); remaining changes:
+    - dh_installinit: Add --upstart-only and --onlyscripts-upstart modes.
+    - Add various autoscripts for above: postinst-upstart,
+      postinst-upstart-replace, postinst-upstart-restart,
+      prerm-upstart, prerm-upstart-norestart, preinst-removeconffile.
+    - dh_installudev: Change default init.d symlink priority to 40.
+    - dh_installchangelogs: Do not install upstream changelog in compat level
+      7. This floods packages with huge upstream changelogs which take
+      precious CD space.
+    - add dh_apparmor and autoscripts
+    - debian/rules: set executable bit for dh_apparmor before actually running
+      dh build, that is in order to get the manpage built for dh_apparmor.
+    - dh_installinit: drop redundant definition of -O.
+    - debian/control: dpkg-dev dependency needs to be on 1.16.0~ubuntu4 for
+      multiarch, not just 1.16.0~.
+
+ -- أحمد المحمودي (Ahmed El-Mahmoudy) <aelmahmoudy@sabily.org>  Sat, 02 Jul 2011 00:04:09 +0200
+
 debhelper (8.9.0) unstable; urgency=low
 
   * dh: In v9, any standard rules file targets, including build-arch,
@@ -1310,6 +1960,32 @@ debhelper (8.9.0) unstable; urgency=low
     the CMakeCache.txt.
 
  -- Joey Hess <joeyh@debian.org>  Fri, 24 Jun 2011 14:28:52 -0400
+
+debhelper (8.1.6ubuntu2) oneiric; urgency=low
+
+  * dh_installinit: drop redundant definition of -O.
+  * debian/control: dpkg-dev dependency needs to be on 1.16.0~ubuntu4 for
+    multiarch, not just 1.16.0~.
+
+ -- Steve Langasek <steve.langasek@ubuntu.com>  Fri, 20 May 2011 17:49:44 -0700
+
+debhelper (8.1.6ubuntu1) oneiric; urgency=low
+
+  * Merge with Debian (LP: #773932); remaining changes:
+    - dh_installinit: Add --upstart-only and --onlyscripts-upstart modes.
+    - Add various autoscripts for above: postinst-upstart,
+      postinst-upstart-replace, postinst-upstart-restart,
+      prerm-upstart, prerm-upstart-norestart, preinst-removeconffile.
+    - dh_installudev: Change default init.d symlink priority to 40.
+    - dh_installchangelogs: Do not install upstream changelog in compat level
+      7. This floods packages with huge upstream changelogs which take
+      precious CD space.
+    - add dh_apparmor and autoscripts
+    - debian/rules: override build target to set executable bit for
+      dh_apparmor before actually running dh build, that is in order to get
+      the manpage built for dh_apparmor.
+
+ -- أحمد المحمودي (Ahmed El-Mahmoudy) <aelmahmoudy@sabily.org>  Thu, 28 Apr 2011 21:02:28 +0200
 
 debhelper (8.1.6) unstable; urgency=low
 
@@ -1366,12 +2042,87 @@ debhelper (8.1.3) unstable; urgency=low
 
  -- Joey Hess <joeyh@debian.org>  Tue, 05 Apr 2011 13:09:43 -0400
 
+debhelper (8.1.2ubuntu4) natty; urgency=low
+
+  * debhelper.pod: v9 info was added in the wrong place by mistake; move it
+    to where it belongs so the manpage reads sensibly again.
+
+ -- Steve Langasek <steve.langasek@ubuntu.com>  Mon, 21 Mar 2011 15:59:12 -0700
+
+debhelper (8.1.2ubuntu3) natty; urgency=low
+
+  * Revert the patch for env variable expansion based on feedback from Joey
+    Hess.  It appears this patch is not as far along the path to upstream
+    inclusion as I thought it was; sorry for the misunderstanding, Joey.
+
+ -- Steve Langasek <steve.langasek@ubuntu.com>  Tue, 15 Mar 2011 13:12:50 -0700
+
+debhelper (8.1.2ubuntu2) natty; urgency=low
+
+  * multiarch support.  FFe LP: #733501.
+  * merge changes from upstream git:
+    - Started work on Debhelper v9. It is still experimental, and more
+      changes may be added to that mode.
+    - Support multiarch in v9. Thanks, Steve Langasek. Closes: #617761
+    - dh_auto_configure: Support multiarch in v9 by passing multiarch
+      directories to --libdir and --libexecdir.
+    - dh_makeshlibs: Detect packages using multiarch directories and
+      make ${misc:Pre-Depends} expand to multiarch-support.
+    - Depend on dpkg-dev (>= 1.16.0) for multiarch support. Note to
+      backporters: If you remove that dependency, debhelper will fall back
+      to not doing multiarch stuff in v9 mode, which is probably what you
+      want.
+  * Add Daniel Silverstone's patch to give us env variable expansions in
+    .install/.link files, needed in order to let us use DEB_HOST_MULTIARCH
+    without cumbersome .in files everywhere.  Closes: #614731.
+
+ -- Steve Langasek <steve.langasek@ubuntu.com>  Mon, 14 Mar 2011 20:20:18 -0700
+
+debhelper (8.1.2ubuntu1) natty; urgency=low
+
+  * Merge with Debian (LP: #719150); remaining changes:
+    - dh_installinit: Add --upstart-only and --onlyscripts-upstart modes.
+    - Add various autoscripts for above: postinst-upstart,
+      postinst-upstart-replace, postinst-upstart-restart,
+      prerm-upstart, prerm-upstart-norestart, preinst-removeconffile.
+    - dh_installudev: Change default init.d symlink priority to 40.
+    - dh_installchangelogs: Do not install upstream changelog in compat level
+      7. This floods packages with huge upstream changelogs which take
+      precious CD space.
+    - add dh_apparmor and autoscripts
+    - debian/rules: override build target to set executable bit for
+      dh_apparmor before actually running dh build, that is in order to get
+      the manpage built for dh_apparmor.
+
+ -- أحمد المحمودي (Ahmed El-Mahmoudy) <aelmahmoudy@sabily.org>  Tue, 15 Feb 2011 06:46:24 +0200
+
 debhelper (8.1.2) unstable; urgency=low
 
   * Fix logging at end of an override target that never actually runs
     the overridden command. Closes: #613418
 
  -- Joey Hess <joeyh@debian.org>  Mon, 14 Feb 2011 14:22:17 -0400
+
+debhelper (8.1.1ubuntu1) natty; urgency=low
+
+  * Merge with Debian (LP: #716844); remaining changes:
+    - dh_installinit: Add --upstart-only and --onlyscripts-upstart modes.
+    - Add various autoscripts for above: postinst-upstart,
+      postinst-upstart-replace, postinst-upstart-restart,
+      prerm-upstart, prerm-upstart-norestart, preinst-removeconffile.
+    - dh_installudev: Change default init.d symlink priority to 40.
+    - dh_installchangelogs: Do not install upstream changelog in compat level
+      7. This floods packages with huge upstream changelogs which take
+      precious CD space.
+    - add dh_apparmor and autoscripts
+    - debian/rules: override build target to set executable bit for
+      dh_apparmor before actually running dh build, that is in order to get
+      the manpage built for dh_apparmor.
+  * Dropped changes that got fixed upstream:
+    - dh_strip, dh_makeshlibs: use triplet-objdump, triplet-objcopy and
+      triplet-strip from cross-binutils when cross-compiling; Debian #412118.
+
+ -- أحمد المحمودي (Ahmed El-Mahmoudy) <aelmahmoudy@sabily.org>  Fri, 11 Feb 2011 06:38:43 +0200
 
 debhelper (8.1.1) unstable; urgency=low
 
@@ -1385,6 +2136,26 @@ debhelper (8.1.1) unstable; urgency=low
     commands run during the override have finished. Closes: #612828
 
  -- Joey Hess <joeyh@debian.org>  Thu, 10 Feb 2011 19:58:34 -0400
+
+debhelper (8.1.0ubuntu1) natty; urgency=low
+
+  * Merge with Debian (LP: #714705); remaining changes:
+    - dh_installinit: Add --upstart-only and --onlyscripts-upstart modes.
+    - Add various autoscripts for above: postinst-upstart,
+      postinst-upstart-replace, postinst-upstart-restart,
+      prerm-upstart, prerm-upstart-norestart, preinst-removeconffile.
+    - dh_installudev: Change default init.d symlink priority to 40.
+    - dh_installchangelogs: Do not install upstream changelog in compat level
+      7. This floods packages with huge upstream changelogs which take
+      precious CD space.
+    - dh_strip, dh_makeshlibs: use triplet-objdump, triplet-objcopy and
+      triplet-strip from cross-binutils when cross-compiling; Debian #412118.
+    - add dh_apparmor and autoscripts
+    - debian/rules: override build target to set executable bit for
+      dh_apparmor before actually running dh build, that is in order to get
+      the manpage built for dh_apparmor.
+
+ -- أحمد المحمودي (Ahmed El-Mahmoudy) <aelmahmoudy@sabily.org>  Mon, 07 Feb 2011 17:16:49 +0200
 
 debhelper (8.1.0) unstable; urgency=low
 
@@ -1432,6 +2203,35 @@ debhelper (8.1.0) unstable; urgency=low
   * French translation update after massive man page typography 
 
  -- Joey Hess <joeyh@debian.org>  Sat, 05 Feb 2011 12:00:04 -0400
+
+debhelper (8.0.0ubuntu2) natty; urgency=low
+
+  * autoscripts postinst-upstart, prerm-upstart, prerm-upstart-norestart
+    need to use invoke-rc.d instead of calling start/stop directly, so that
+    they're well-behaved in chroots and other places policy-rc.d may be used.
+    LP: #690640.
+
+ -- Steve Langasek <steve.langasek@ubuntu.com>  Sun, 23 Jan 2011 12:38:00 -0800
+
+debhelper (8.0.0ubuntu1) maverick; urgency=low
+
+  * Merge with Debian (LP: #614787); remaining changes:
+    - dh_installinit: Add --upstart-only and --onlyscripts-upstart modes.
+    - Add various autoscripts for above: postinst-upstart,
+      postinst-upstart-replace, postinst-upstart-restart,
+      prerm-upstart, prerm-upstart-norestart, preinst-removeconffile.
+    - dh_installudev: Change default init.d symlink priority to 40.
+    - dh_installchangelogs: Do not install upstream changelog in compat level
+      7. This floods packages with huge upstream changelogs which take
+      precious CD space.
+    - dh_strip, dh_makeshlibs: use triplet-objdump, triplet-objcopy and
+      triplet-strip from cross-binutils when cross-compiling; Debian #412118.
+    - add dh_apparmor and autoscripts
+  * debian/rules: override build target to set executable bit for dh_apparmor
+    before actually running dh build, that is in order to get the manpage
+    built for dh_apparmor.
+
+ -- أحمد المحمودي (Ahmed El-Mahmoudy) <aelmahmoudy@sabily.org>  Tue, 10 Aug 2010 12:45:25 +0300
 
 debhelper (8.0.0) unstable; urgency=low
 
@@ -1494,6 +2294,55 @@ debhelper (7.9.1) unstable; urgency=low
 
  -- Joey Hess <joeyh@debian.org>  Wed, 16 Jun 2010 13:44:48 -0400
 
+debhelper (7.4.20ubuntu6) maverick; urgency=low
+
+  * autoscripts/postinst-apparmor: don't 'echo' to stdout. As nice as it
+    looks, it doesn't play well with debconf and isn't translated. Thanks
+    to dhcp3 for pointing this out.
+
+ -- Jamie Strandboge <jamie@ubuntu.com>  Fri, 06 Aug 2010 17:11:13 -0500
+
+debhelper (7.4.20ubuntu5) maverick; urgency=low
+
+  * autoscripts/postinst-apparmor:
+    - tweak logic slightly to be more efficient and add some comments
+    - chmod 644 the local include file
+  * dh_apparmor: add note about using -p
+
+ -- Jamie Strandboge <jamie@ubuntu.com>  Fri, 06 Aug 2010 12:04:08 -0500
+
+debhelper (7.4.20ubuntu4) maverick; urgency=low
+
+  * add dh_apparmor and autoscripts
+
+ -- Jamie Strandboge <jamie@ubuntu.com>  Fri, 06 Aug 2010 08:32:41 -0500
+
+debhelper (7.4.20ubuntu3) maverick; urgency=low
+
+  * dh_strip, dh_makeshlibs: use triplet-objdump, triplet-objcopy and
+    triplet-strip from cross-binutils when cross-compiling; Debian #412118.
+
+ -- Loïc Minier <loic.minier@ubuntu.com>  Tue, 03 Aug 2010 16:36:12 -0400
+
+debhelper (7.4.20ubuntu2) maverick; urgency=low
+
+  * dh_installchangelogs: Do not install upstream changelog in compat level 7.
+    This floods packages with huge upstream changelogs which take precious CD
+    space.
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Sun, 01 Aug 2010 21:07:12 +0200
+
+debhelper (7.4.20ubuntu1) maverick; urgency=low
+
+  * Merge with Debian (LP: #583352); remaining changes:
+    - dh_installinit: Add --upstart-only and --onlyscripts-upstart modes.
+    - Add various autoscripts for above: postinst-upstart,
+      postinst-upstart-replace, postinst-upstart-restart,
+      prerm-upstart, prerm-upstart-norestart, preinst-removeconffile.
+    - dh_installudev: Change default init.d symlink priority to 40.
+
+ -- أحمد المحمودي (Ahmed El-Mahmoudy) <aelmahmoudy@sabily.org>  Thu, 20 May 2010 14:37:56 +0300
+
 debhelper (7.4.20) unstable; urgency=low
 
   * Drop one more call to dpkg-architecture. Closes: #580837
@@ -1504,6 +2353,21 @@ debhelper (7.4.20) unstable; urgency=low
   * dh_perl: use debian_abi for XS modules. Closes: #581233
 
  -- Joey Hess <joeyh@debian.org>  Wed, 12 May 2010 20:06:02 -0400
+
+debhelper (7.4.19ubuntu1) maverick; urgency=low
+
+  * Merge with Debian; remaining changes:
+    - dh_installinit: Add --upstart-only and --onlyscripts-upstart modes.
+    - Add various autoscripts for above: postinst-upstart,
+      postinst-upstart-replace, postinst-upstart-restart,
+      prerm-upstart, prerm-upstart-norestart, preinst-removeconffile.
+    - dh_installudev: Change default init.d symlink priority to 40.
+  * dh_installudev: Drop conffile migration code, it was only needed until
+    lucid.
+  * dh_gconf: Temporarily lower generated gconf dependency to a version which
+    we actually have.
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 03 May 2010 11:22:01 +0200
 
 debhelper (7.4.19) unstable; urgency=low
 
@@ -1551,6 +2415,18 @@ debhelper (7.4.16) unstable; urgency=low
 
  -- Joey Hess <joeyh@debian.org>  Tue, 06 Apr 2010 22:06:50 -0400
 
+debhelper (7.4.15ubuntu1) lucid; urgency=low
+
+  * Resynchronise with Debian.  Remaining changes:
+    - dh_installinit: Add --upstart-only and --onlyscripts-upstart modes.
+    - Add various autoscripts for above: postinst-upstart,
+      postinst-upstart-replace, postinst-upstart-restart,
+      prerm-upstart, prerm-upstart-norestart, preinst-removeconffile.
+    - dh_installudev: Handle conffile migration from old Ubuntu defaults
+      (needed until after the next LTS release).
+
+ -- Colin Watson <cjwatson@ubuntu.com>  Mon, 22 Feb 2010 12:46:04 +0000
+
 debhelper (7.4.15) unstable; urgency=low
 
   * The fix for #563557 caused some new trouble involving makefile
@@ -1565,6 +2441,18 @@ debhelper (7.4.14) unstable; urgency=low
     as "-Bpython-support". Closes: #570039
 
  -- Joey Hess <joeyh@debian.org>  Tue, 16 Feb 2010 14:47:10 -0500
+
+debhelper (7.4.13ubuntu1) lucid; urgency=low
+
+  * Resynchronise with Debian.  Remaining changes:
+    - dh_installinit: Add --upstart-only and --onlyscripts-upstart modes.
+    - Add various autoscripts for above: postinst-upstart,
+      postinst-upstart-replace, postinst-upstart-restart,
+      prerm-upstart, prerm-upstart-norestart, preinst-removeconffile.
+    - dh_installudev: Handle conffile migration from old Ubuntu defaults
+      (needed until after the next LTS release).
+
+ -- Colin Watson <cjwatson@ubuntu.com>  Thu, 11 Feb 2010 19:02:31 +0000
 
 debhelper (7.4.13) unstable; urgency=low
 
@@ -1591,6 +2479,18 @@ debhelper (7.4.12) unstable; urgency=low
 
  -- Joey Hess <joeyh@debian.org>  Sat, 30 Jan 2010 20:23:02 -0500
 
+debhelper (7.4.11ubuntu1) lucid; urgency=low
+
+  * Merge with Debian; remaining changes:
+    - dh_installinit: Add --upstart-only and --onlyscripts-upstart modes.
+    - Add various autoscripts for above: postinst-upstart,
+      postinst-upstart-replace, postinst-upstart-restart,
+      prerm-upstart, prerm-upstart-norestart, preinst-removeconffile.
+    - dh_installudev: Handle conffile migration from old Ubuntu defaults
+      (needed until after the next LTS release).
+
+ -- Matthias Klose <doko@ubuntu.com>  Thu, 28 Jan 2010 10:44:11 +0100
+
 debhelper (7.4.11) unstable; urgency=low
 
   * dh(1): Minor rewording of documentation of override commands.
@@ -1606,6 +2506,22 @@ debhelper (7.4.11) unstable; urgency=low
     call to make to handle them. (Modestas Vainius)
 
  -- Joey Hess <joeyh@debian.org>  Thu, 31 Dec 2009 11:32:34 -0500
+
+debhelper (7.4.10ubuntu1) lucid; urgency=low
+
+  [ أحمد المحمودي (Ahmed El-Mahmoudy) ]
+  * Merge with Debian unstable (LP: #485956). Remaining Ubuntu changes:
+    - dh_installinit: Add --upstart-only and --onlyscripts-upstart modes.
+    - Add various autoscripts for above: postinst-upstart,
+      postinst-upstart-replace, postinst-upstart-restart,
+      prerm-upstart, prerm-upstart-norestart, preinst-removeconffile.
+    - dh_installudev: Handle conffile migration from old Ubuntu defaults
+      (needed until after the next LTS release).
+
+  [ Daniel Holbach ]
+  * Port merge from 7.4.7 to 7.4.10.
+
+ -- أحمد المحمودي (Ahmed El-Mahmoudy) <aelmahmoudy@users.sourceforge.net>  Wed, 16 Dec 2009 09:01:54 +0100
 
 debhelper (7.4.10) unstable; urgency=low
 
@@ -1694,6 +2610,25 @@ debhelper (7.4.4) unstable; urgency=low
 
  -- Joey Hess <joeyh@debian.org>  Wed, 18 Nov 2009 14:44:21 -0500
 
+debhelper (7.4.3ubuntu2) lucid; urgency=low
+
+  * dh_installinit: Fix merge error which caused init.d-autoscripts to be
+    run for upstartified packages. (LP: #470326)
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 02 Nov 2009 13:01:48 +0100
+
+debhelper (7.4.3ubuntu1) lucid; urgency=low
+
+  * Merge with Debian unstable. Remaining Ubuntu changes:
+    - dh_installinit: Add --upstart-only and --onlyscripts-upstart modes.
+    - Add various autoscripts for above: postinst-upstart,
+      postinst-upstart-replace, postinst-upstart-restart,
+      prerm-upstart, prerm-upstart-norestart, preinst-removeconffile.
+    - dh_installudev: Handle conffile migration from old Ubuntu defaults
+      (needed until after the next LTS release).
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Fri, 30 Oct 2009 14:11:17 +0100
+
 debhelper (7.4.3) unstable; urgency=low
 
   [ Valery Perrin ]
@@ -1775,6 +2710,54 @@ debhelper (7.3.16) unstable; urgency=low
 
  -- Joey Hess <joeyh@debian.org>  Wed, 26 Aug 2009 17:10:53 -0400
 
+debhelper (7.3.15ubuntu3) karmic; urgency=low
+
+  * dh_installinit:
+    - Create the upstart-job symlink even when --upstart-only is called,
+      since this simplifies implementation of...
+    - --restart-after-upgrade: we can't use the upstart 'restart' command here
+      because this will give wrong behavior if we're adding a new job to an
+      existing package; instead just use the standard invoke-rc.d snippet,
+      which (combined with the above) will at least give us compatibility
+      with policy-rc.d for preventing stopped jobs from starting on upgrade.
+      (N.B.: prerm scripts could also safely reuse the invoke-rc.d handling
+      instead of calling 'stop' directly, but leaving this alone for now
+      because the current behavior is only minorly buggy.)
+    - Drop unnecessary UPSTART_ONLY check; --upstart-only should never be set
+      without having an upstart job so this is redundant.
+    - postinst-reboot-required is never the right snippet to include here.
+    - Merge in the final changes to the upstartification as accepted into
+      debhelper upstream, dropping the --onlyscripts-upstart option from
+      the documentation but mapping it to --onlyscripts for compatibility in
+      karmic.
+  * autoscript/postinst-upstart: typo fix.
+
+ -- Steve Langasek <steve.langasek@ubuntu.com>  Wed, 30 Sep 2009 13:57:14 -0700
+
+debhelper (7.3.15ubuntu2) karmic; urgency=low
+
+  FFE LP: #427356.
+
+  * dh_installinit: handle upstart job files in preference over init
+    scripts, supplying appropriate maintainer scripts to stop, start or
+    restart the jobs over upgrades.
+    - currently unlike init scripts, these accept failures because Upstart
+      considers "start when already running" failure.
+  * dh_installinit: --upstart-only will not include maintainer script code
+    to replace an init script with an upstart job, otherwise a compatibilty
+    symlink to /lib/init/upstart-job is left in its place
+
+ -- Scott James Remnant <scott@ubuntu.com>  Tue, 15 Sep 2009 03:32:13 +0100
+
+debhelper (7.3.15ubuntu1) karmic; urgency=low
+
+  * Resynchronise with Debian. Remaining changes:
+    - dh_installudev: Default priority is now 40 by default.
+    - dh_installudev: Handle conffile migration from old Ubuntu defaults
+      (needed until after the next LTS release).
+
+ -- Colin Watson <cjwatson@ubuntu.com>  Tue, 25 Aug 2009 11:10:18 +0100
+
 debhelper (7.3.15) unstable; urgency=low
 
   * dh_installudev: Install rules files into new location
@@ -1848,6 +2831,17 @@ debhelper (7.3.9) unstable; urgency=low
     It gets stripped by cmake at install time. Closes: #538977
 
  -- Joey Hess <joeyh@debian.org>  Sat, 01 Aug 2009 15:59:07 -0400
+
+debhelper (7.3.8ubuntu1) karmic; urgency=low
+
+  * Merge with Debian unstable (LP: #404561). Remaining Ubuntu changes:
+    - dh_installudev: Default priority is now 40 by default, the target
+      directory is /lib/udev/rules.d, and rules use '-' as separator instead of
+      '_'.  Remove files from /etc/udev/rules.d unless they are user modified;
+      if modified and of default priority, take care to rename.
+      This should eventually go to Debian as well, see Debian #491117.
+
+ -- أحمد المحمودي (Ahmed El-Mahmoudy) <aelmahmoudy@users.sourceforge.net>  Sat, 25 Jul 2009 17:17:24 +0300
 
 debhelper (7.3.8) unstable; urgency=low
 
