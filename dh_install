@@ -58,8 +58,10 @@ will automatically guess the destination to use, the same as if the
 =item debian/not-installed
 
 List the files that are deliberately not installed in I<any> binary
-package.  Paths listed in this file are ignored by the check done via
-B<--list-missing> (or B<--fail-missing>).
+package.  Paths listed in this file are (I<only>) ignored by the check
+done via B<--list-missing> (or B<--fail-missing>).  However, it is
+B<not> a method to exclude files from being installed.  Please use
+B<--exclude> for that.
 
 Please keep in mind that dh_install will B<not> expand wildcards in
 this file.
@@ -199,17 +201,14 @@ foreach my $package (getpackages()) {
 				} else {
 					warning("Cannot find (any matches for) \"${glob}\" (tried in \"${srcdir}\" and \"debian/tmp\")");
 				}
-				# In compat 4, a non-matching glob was not fatal...
-				++$missing_files if not compat(4) or @found;
+				++$missing_files;
 			}
 		}
 
-		if (! compat(4)) { # check added in v5
-			if (! @filelist && ! $skip_install) {
-				warning("$package missing files: @$set");
-				++$missing_files;
-				next;
-			}
+		if (! @filelist && ! $skip_install) {
+			warning("$package missing files: @$set");
+			++$missing_files;
+			next;
 		}
 
 		foreach my $src (@filelist) { 
@@ -228,10 +227,8 @@ foreach my $package (getpackages()) {
 			}
 
 			# Make sure the destination directory exists.
-			if (! -e "$tmp/$dest") {
-				install_dir("$tmp/$dest");
-			}
-			
+			install_dir("$tmp/$dest");
+
 			if (-d $src && $exclude) {
 				my $basename = basename($src);
 				my $dir = ($basename eq '.') ? $src : "$src/..";
@@ -265,8 +262,12 @@ if ($dh{LIST_MISSING} || $dh{FAIL_MISSING}) {
 	
 	my @missing;
 	if ( -f 'debian/not-installed') {
+		my @not_installed = filearray('debian/not-installed');
+		foreach (@not_installed) {
+		  s:^\s*:debian/tmp/: unless m:^\s*debian/tmp/:;
+		}
 		# Pretend that these are also installed.
-		push(@installed, filearray('debian/not-installed'));
+		push(@installed, @not_installed);
 	}
 	my $installed=join("|", map {
 		# Kill any extra slashes, for robustness.

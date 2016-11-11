@@ -50,6 +50,8 @@ slash.  Any content in these directories will be removed as well.
 
 This is deprecated, use L<dh_prep(1)> instead.
 
+The option is removed in compat 11.
+
 =item B<-d>, B<--dirs-only>
 
 Only clean the package build directories, do not clean up any other files
@@ -72,17 +74,6 @@ slash.  Any content in these directories will be removed as well.
 
 =cut
 
-if ( not -f 'debian/compat' and not $ENV{'DH_COMPAT'}) {
-	# Temporary work around - Permit a missing compat to work with
-	# cdbs's feature of auto-creating a d/compat file.
-	#  - Auto-bump to compat 5 to match cdbs (Not that it matters a lot,
-	#    since there is no compat conditions for 4 or less)
-	warning("Pretending DH_COMPAT was set to 5");
-	warning(" - this is a temporary measure to avoid FTBFS in packages");
-	warning("   relying on cdbs to set debian/compat to 5 during the build");
-	$ENV{'DH_COMPAT'} = 5;
-}
-
 init(options => {
 	"dirs-only" => \$dh{D_FLAG},
 });
@@ -90,6 +81,9 @@ inhibit_log();
 
 if ($dh{K_FLAG}) {
 	# dh_prep will be emulated (mostly) by the code below.
+	if (not compat(10)) {
+		error("The -k option is not supported in compat 11; use dh_prep instead");
+	}
 	warning("dh_clean -k is deprecated; use dh_prep instead");
 }
 

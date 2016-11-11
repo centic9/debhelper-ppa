@@ -27,6 +27,10 @@ documentation into F<usr/share/doc/package> in package build directories.
 
 List documentation files to be installed into I<package>.
 
+In compat 11 (or later), these will be installed into
+F</usr/share/doc/mainpackage>.  Previously it would be
+F</usr/share/doc/package>.
+
 =item F<debian/copyright>
 
 The copyright file is installed into all packages, unless a more
@@ -214,31 +218,32 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 	}
 
 	if (@docs) {
-		my $exclude = '';
+		my $target_package = $package;
+		my $exclude = ' -and ! -empty';
 		if ($dh{EXCLUDE_FIND}) {
 			$exclude .= ' -and ! \( '.$dh{EXCLUDE_FIND}.' \)';
 		}
-		if (! compat(4)) {
-			# ignore empty files in subdirs
-			$exclude .= ' -and ! -empty';
+		if (not compat(10)) {
+			$target_package = $dh{MAINPACKAGE};
 		}
+		my $target_dir = "$tmp/usr/share/doc/$target_package";
+		install_dir($target_dir) unless -l $target_dir;
 		foreach my $doc (@docs) {
 			next if excludefile($doc);
-			next if -e $doc && ! -s $doc && ! compat(4); # ignore empty files
+			next if -e $doc && ! -s $doc; # ignore empty files
 			ensure_docdir($package);
 			if (-d $doc && length $exclude) {
 				my $basename = basename($doc);
 				my $dir = ($basename eq '.') ? $doc : "$doc/..";
 				my $pwd=`pwd`;
 				chomp $pwd;
-				my $docdir = "$pwd/$tmp/usr/share/doc/$package";
+				my $docdir = "$pwd/$target_dir";
 				complex_doit("cd '$dir' && " .
 							 "find '$basename' \\( -type f -or -type l \\)$exclude -print0 | LC_ALL=C sort -z | " .
 							 "xargs -0 -I {} cp --reflink=auto --parents -dp {} $docdir");
 			}
 			else {
-				doit("cp", '--reflink=auto', "-a", $doc,
-					 "$tmp/usr/share/doc/$package");
+				doit("cp", '--reflink=auto', "-a", $doc, $target_dir);
 			}
 		}
 		doit("chown","-R","0:0","$tmp/usr/share/doc");
@@ -304,8 +309,8 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 		next if $fn=~/\.EX$/;
 		next if excludefile($fn);
 		# Parse the file to get the doc id.
-		open (IN, "debian/$fn") || die "Cannot read debian/$fn.";
-		while (<IN>) {
+		open(my $fd, '<', "debian/$fn") || die "Cannot read debian/$fn.";
+		while (<$fd>) {
 			s/\s*$//;
 			if (/^Document\s*:\s*(.*)/) {
 				$doc_ids{$fn}=$1;
@@ -315,14 +320,12 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 		if (! exists $doc_ids{$fn}) {
 			warning("Could not parse $fn for doc-base Document id; skipping");
 		}
-		close IN;
+		close($fd);
 	}
 	closedir(DEB);
 	
 	if (%doc_ids) {
-		if (! -d "$tmp/usr/share/doc-base/") {
-			install_dir("$tmp/usr/share/doc-base/");
-		}
+		install_dir("$tmp/usr/share/doc-base/");
 	}
 	# check for duplicate document ids
 	my %used_doc_ids;
