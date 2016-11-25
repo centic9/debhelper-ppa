@@ -1,3 +1,9 @@
+debhelper (10.2.2ubuntu1~ubuntu16.04.2~ppa1) xenial; urgency=medium
+
+  * Upload for PPA without -backports.
+
+ -- Dominik Stadler (Ubuntu key) <dominik.stadler@gmx.at>  Fri, 25 Nov 2016 22:01:48 +0100
+
 debhelper (10.2.2ubuntu1~ubuntu16.04.1) xenial-backports; urgency=medium
 
   * No-change backport to xenial
@@ -298,6 +304,19 @@ debhelper (9.20160618) unstable; urgency=medium
   * Bump standards-version to 3.9.8 - no changes required.
 
  -- Niels Thykier <niels@thykier.net>  Sat, 18 Jun 2016 14:41:05 +0000
+
+debhelper (9.20160403ubuntu2~ppa2) trusty; urgency=medium
+
+  * Try with lower versoin of dpkg as they depend on newer 
+    versions of each other!
+
+ -- Dominik Stadler (Ubuntu key) <dominik.stadler@gmx.at>  Sun, 24 Apr 2016 13:38:23 +0200
+
+debhelper (9.20160403ubuntu2~ppa1) trusty; urgency=medium
+
+  * Backport to trusty.
+
+ -- Dominik Stadler (Ubuntu key) <dominik.stadler@gmx.at>  Sun, 24 Apr 2016 11:20:21 +0200
 
 debhelper (9.20160403ubuntu1) yakkety; urgency=medium
 
