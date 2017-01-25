@@ -166,8 +166,6 @@ if ($dh{MIGRATE_DBGSYM} and not $dh{ENABLE_DBGSYM}) {
 	error("--dbgsym-migration and --no-automatic-dbgsym are mutually exclusive");
 }
 
-$dh{ENABLE_DBGSYM} = 0 if not $ENV{'DH_BUILD_DDEBS'};
-
 # This variable can be used to turn off stripping (see Policy).
 if (get_buildoption('nostrip')) {
 	exit;

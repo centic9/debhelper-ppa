@@ -1,20 +1,60 @@
-debhelper (10.2.2ubuntu1~ubuntu16.04.1) xenial-backports; urgency=medium
+debhelper (10.2.5) unstable; urgency=medium
 
-  * No-change backport to xenial
+  [ Translations ]
+  * Add Japanese translation (Hideki Yamane)  (Closes: #852520)
 
- -- Iain Lane <iain@orangesquash.org.uk>  Fri, 11 Nov 2016 09:48:33 +0000
+ -- Niels Thykier <niels@thykier.net>  Wed, 25 Jan 2017 20:47:27 +0000
 
-debhelper (10.2.2ubuntu1) zesty; urgency=medium
+debhelper (10.2.4) unstable; urgency=medium
 
-  * Merge from Debian unstable.  Remaining changes:
-    - dh_installchangelogs: Do not install upstream changelog in compat
-      level 7. This floods packages with huge upstream changelogs which
-      are unnecessary on an installed system.
-    - dh_strip: Revert commit f1a803456 to disable ddebs generation by
-      default.  This first needs adjustments in Launchpad and ddebs.u.c., and
-      dropping pkg-create-dbgsym.
+  [ Niels Thykier ]
+  * d/changelog: Add missing changelog entry in 10.2.3 for a
+    compat 11 change.
+  * dh: Show when the "create-stamp" "command" is being run.
+  * dh: Fix a bug where dh would repeat part of the build sequence
+    when an add-on modified the build sequence after "dh_auto_test".
+    Thanks to Sean Whitton for reporting the issue.
+    (Closes: #851071)
 
- -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 17 Oct 2016 21:34:23 +0200
+  [ Luca Boccassi ]
+  * dh_systemd_enable: Correct installation for "mount" units.
+    (Closes: #851744)
+
+  [ Translations ]
+  * Update Portuguese translation (Américo Monteiro)
+    (Closes: #851207)
+  * Update French translation (Baptiste Jammet)  (Closes: #852211)
+  * Update German translation (Chris Leick)  (Closes: #851962)
+
+ -- Niels Thykier <niels@thykier.net>  Mon, 23 Jan 2017 20:28:37 +0000
+
+debhelper (10.2.3) unstable; urgency=medium
+
+  [ Axel Beckert ]
+  * Fix wrong German translation of dh_systemd_start man page. Thanks to
+    Thorsten Alteholz for spotting the mistake! (Closes: #839655)
+
+  [ Mattia Rizzolo ]
+  * dh_auto_test: Apply patch from Mattia Rizzolo to update
+    documentation about running tests during cross-building.
+
+  [ Niels Thykier ]
+  * Bump dependency on dh-strip-nondeterminism to ensure
+    stable-backports uses a functional version.  Thanks to Christoph
+    Biedl for the report. (Closes: #843813)
+  * Massage md5sum output to avoid GNU-specific escaping extension
+    while we wait for dpkg-gendigests for a more compatible tool.
+    Thanks to Bernd Zeimetz for the report.  (Closes: #843163)
+  * In compat 11, dh will now skip creating a stamp file unless the
+    package explicitly requests it with "--with build-stamp".
+
+  [ Felipe Sateler ]
+  * dh_systemd_start: Fix a bug where --restart-after-upgrade with
+    --no-start would still start the service.  (Closes: #805878)
+  * dh_installinit: Leave the handling of debian/pkg.service and
+    debian/pkg.tmpfiles to dh_systemd_*.  (Closes: #830208)
+
+ -- Niels Thykier <niels@thykier.net>  Sat, 31 Dec 2016 21:27:54 +0000
 
 debhelper (10.2.2) unstable; urgency=medium
 
@@ -93,18 +133,6 @@ debhelper (10.1) unstable; urgency=medium
 
  -- Niels Thykier <niels@thykier.net>  Sat, 01 Oct 2016 20:45:27 +0000
 
-debhelper (10ubuntu1) yakkety; urgency=medium
-
-  * Merge from Debian unstable.  Remaining changes:
-    - dh_installchangelogs: Do not install upstream changelog in compat
-      level 7. This floods packages with huge upstream changelogs which
-      are unnecessary on an installed system.
-    - dh_strip: Revert commit f1a803456 to disable ddebs generation by
-      default.  This first needs adjustments in Launchpad and ddebs.u.c., and
-      dropping pkg-create-dbgsym.
-
- -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 12 Sep 2016 07:12:45 +0200
-
 debhelper (10) unstable; urgency=medium
 
   [ Niels Thykier ]
@@ -159,18 +187,6 @@ debhelper (9.20160814) unstable; urgency=medium
 
  -- Niels Thykier <niels@thykier.net>  Sun, 14 Aug 2016 09:19:35 +0000
 
-debhelper (9.20160709ubuntu1) yakkety; urgency=medium
-
-  * Merge from Debian unstable.  Remaining changes:
-    - dh_installchangelogs: Do not install upstream changelog in compat
-      level 7.  This floods packages with huge upstream changelogs which
-      take precious CD space.
-    - dh_strip: Revert commit f1a803456 to disable ddebs generation by
-      default.  This first needs adjustments in Launchpad and ddebs.u.c., and
-      dropping pkg-create-dbgsym.
-
- -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 11 Jul 2016 22:17:30 +0200
-
 debhelper (9.20160709) unstable; urgency=medium
 
   * Explicitly Build-Depends on perl:any for pod2man instead
@@ -215,24 +231,6 @@ debhelper (9.20160702) unstable; urgency=medium
     (Closes: #827699)
 
  -- Niels Thykier <niels@thykier.net>  Sat, 02 Jul 2016 13:24:21 +0000
-
-debhelper (9.20160618.1ubuntu1) yakkety; urgency=medium
-
-  * Merge from Debian unstable.  Remaining changes:
-    - dh_installchangelogs: Do not install upstream changelog in compat
-      level 7.  This floods packages with huge upstream changelogs which
-      take precious CD space.
-    - dh_strip: Revert commit f1a803456 to disable ddebs generation by
-      default.  This first needs adjustments in Launchpad and ddebs.u.c., and
-      dropping pkg-create-dbgsym.
-  * Dropped changes:
-    - autoscripts/*-init*: Test for /etc/init/*.conf where necessary.
-      We don't support upstart for system init any more, and moreover we
-      stopped dropping SysV init scripts as they are required for insserv.
-    - Clean up older Ubuntu changelog records which were an endless repetition
-      of "remaining changes".
-
- -- Martin Pitt <martin.pitt@ubuntu.com>  Wed, 22 Jun 2016 09:25:16 +0200
 
 debhelper (9.20160618.1) unstable; urgency=medium
 
@@ -298,20 +296,6 @@ debhelper (9.20160618) unstable; urgency=medium
   * Bump standards-version to 3.9.8 - no changes required.
 
  -- Niels Thykier <niels@thykier.net>  Sat, 18 Jun 2016 14:41:05 +0000
-
-debhelper (9.20160403ubuntu1) yakkety; urgency=medium
-
-  * Merge from Debian unstable.  Remaining changes:
-    - autoscripts/*-init*: Test for /etc/init/*.conf where necessary.
-      (Must be kept as long as we support system upstart on touch.)
-    - dh_installchangelogs: Do not install upstream changelog in compat
-      level 7.  This floods packages with huge upstream changelogs which
-      take precious CD space.
-    - dh_strip: Revert commit f1a803456 to disable ddebs generation by
-      default.  This first needs adjustments in Launchpad and ddebs.u.c., and
-      dropping pkg-create-dbgsym.
-
- -- Martin Pitt <martin.pitt@ubuntu.com>  Fri, 22 Apr 2016 16:07:52 +0200
 
 debhelper (9.20160403) unstable; urgency=medium
 
@@ -411,38 +395,6 @@ debhelper (9.20160306) unstable; urgency=medium
     gracefully (Closes: #815620)
 
  -- Niels Thykier <niels@thykier.net>  Sun, 06 Mar 2016 13:14:43 +0000
-
-debhelper (9.20160115ubuntu3) xenial; urgency=medium
-
-  * Backport upstream commit 9ca73a0a ("Pass -a to grep to handle
-    substvars with unicode content gracefully") to fix build-failure
-    with php-mf2 (LP: #1564492, Closes #815620).
-
- -- Nishanth Aravamudan <nish.aravamudan@canonical.com>  Thu, 31 Mar 2016 08:33:23 -0700
-
-debhelper (9.20160115ubuntu2) xenial; urgency=medium
-
-  * dh-strip: Adjust reversion of commit f1a803456 to account for the recent
-    ENABLE_DDEBS → ENABLE_DBGSYM rename. This actually disables -dbgsym
-    generation by dh_strip by default again. (LP: #1535949)
-
- -- Martin Pitt <martin.pitt@ubuntu.com>  Wed, 20 Jan 2016 07:58:09 +0100
-
-debhelper (9.20160115ubuntu1) xenial; urgency=medium
-
-  * Merge from Debian unstable.  Remaining changes:
-    - autoscripts/*-init*: Test for /etc/init/*.conf where necessary.
-    - dh_installchangelogs: Do not install upstream changelog in compat
-      level 7.  This floods packages with huge upstream changelogs which
-      take precious CD space.
-    - dh_installinit: Add dependency to lsb-base >= 4.1+Debian11ubuntu7 that
-      provides the upstart LSB hook, to avoid upgrade breakage. This change
-      can be dropped after 16.04 LTS.
-    - dh_strip: Revert commit f1a803456 to disable ddebs generation by
-      default.  This first needs adjustments in Launchpad and ddebs.u.c., and
-      dropping pkg-create-dbgsym.
-
- -- Martin Pitt <martin.pitt@ubuntu.com>  Tue, 19 Jan 2016 19:55:45 +0100
 
 debhelper (9.20160115) unstable; urgency=medium
 
