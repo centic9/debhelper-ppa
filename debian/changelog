@@ -56,6 +56,30 @@ debhelper (10.2.3) unstable; urgency=medium
 
  -- Niels Thykier <niels@thykier.net>  Sat, 31 Dec 2016 21:27:54 +0000
 
+debhelper (10.2.2ubuntu1~ubuntu16.04.2~ppa1) xenial; urgency=medium
+
+  * Upload for PPA without -backports.
+
+ -- Dominik Stadler (Ubuntu key) <dominik.stadler@gmx.at>  Fri, 25 Nov 2016 22:01:48 +0100
+
+debhelper (10.2.2ubuntu1~ubuntu16.04.1) xenial-backports; urgency=medium
+
+  * No-change backport to xenial
+
+ -- Iain Lane <iain@orangesquash.org.uk>  Fri, 11 Nov 2016 09:48:33 +0000
+
+debhelper (10.2.2ubuntu1) zesty; urgency=medium
+
+  * Merge from Debian unstable.  Remaining changes:
+    - dh_installchangelogs: Do not install upstream changelog in compat
+      level 7. This floods packages with huge upstream changelogs which
+      are unnecessary on an installed system.
+    - dh_strip: Revert commit f1a803456 to disable ddebs generation by
+      default.  This first needs adjustments in Launchpad and ddebs.u.c., and
+      dropping pkg-create-dbgsym.
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 17 Oct 2016 21:34:23 +0200
+
 debhelper (10.2.2) unstable; urgency=medium
 
   * Fix typo in changelog entry for release 10.2.  Thanks to
@@ -297,6 +321,36 @@ debhelper (9.20160618) unstable; urgency=medium
 
  -- Niels Thykier <niels@thykier.net>  Sat, 18 Jun 2016 14:41:05 +0000
 
+<<<<<<< HEAD
+=======
+debhelper (9.20160403ubuntu2~ppa2) trusty; urgency=medium
+
+  * Try with lower versoin of dpkg as they depend on newer 
+    versions of each other!
+
+ -- Dominik Stadler (Ubuntu key) <dominik.stadler@gmx.at>  Sun, 24 Apr 2016 13:38:23 +0200
+
+debhelper (9.20160403ubuntu2~ppa1) trusty; urgency=medium
+
+  * Backport to trusty.
+
+ -- Dominik Stadler (Ubuntu key) <dominik.stadler@gmx.at>  Sun, 24 Apr 2016 11:20:21 +0200
+
+debhelper (9.20160403ubuntu1) yakkety; urgency=medium
+
+  * Merge from Debian unstable.  Remaining changes:
+    - autoscripts/*-init*: Test for /etc/init/*.conf where necessary.
+      (Must be kept as long as we support system upstart on touch.)
+    - dh_installchangelogs: Do not install upstream changelog in compat
+      level 7.  This floods packages with huge upstream changelogs which
+      take precious CD space.
+    - dh_strip: Revert commit f1a803456 to disable ddebs generation by
+      default.  This first needs adjustments in Launchpad and ddebs.u.c., and
+      dropping pkg-create-dbgsym.
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Fri, 22 Apr 2016 16:07:52 +0200
+
+>>>>>>> ppa/10.2.2ubuntu1
 debhelper (9.20160403) unstable; urgency=medium
 
   * d/control: Requre dh-autoreconf (>= 12) to ensure
