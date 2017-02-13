@@ -1,3 +1,9 @@
+debhelper (10.2.5ubuntu0~ppa3) xenial; urgency=medium
+
+  * Reduce dependency on dh-autoreconf to try some more to resolve dependency chain.
+
+ -- Dominik Stadler (Ubuntu key) <dominik.stadler@gmx.at>  Mon, 13 Feb 2017 21:41:31 +0100
+
 debhelper (10.2.5ubuntu0~ppa2) xenial; urgency=medium
 
   * Reduce dependency on dh-strip-nondeterminism to try to resolve the mexican-standoff.
