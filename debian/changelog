@@ -1,3 +1,9 @@
+debhelper (10.2.5ubuntu0~ppa4) xenial; urgency=medium
+
+  * Apply changes from 10.2.2ubuntu1 to make dh_strip work with dbgsyms correctly.
+
+ -- Dominik Stadler (Ubuntu key) <dominik.stadler@gmx.at>  Sat, 25 Feb 2017 22:37:44 +0100
+
 debhelper (10.2.5ubuntu0~ppa3) xenial; urgency=medium
 
   * Reduce dependency on dh-autoreconf to try some more to resolve dependency chain.
