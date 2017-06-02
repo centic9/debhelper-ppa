@@ -153,8 +153,11 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 			# the dbgsym package.
 			my @args = default_compressor_args(["-z1", "-Zxz", "-Sextreme"],
 											   @{$dh{U_PARAMS}});
-			doit("dpkg-deb", @args,
-				 "--build", $dbgsym_tmpdir, $dh{DESTDIR});
+			my @cmd = qw(dpkg-deb);
+			push(@cmd, @args) if @args;
+			push(@cmd, '--build', $dbgsym_tmpdir);
+			build_and_rename_deb($package, $dh{DESTDIR}, \@cmd,
+								 sub { s/\.deb$/\.ddeb/g });
 		} elsif (not is_udeb($package)) {
 			warning("Not building dbgsym package for ${package} as it has no control file");
 			warning("Please use dh_gencontrol to avoid this issue");

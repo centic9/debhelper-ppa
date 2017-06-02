@@ -147,7 +147,7 @@ init(options => {
 if ($dh{K_FLAG} and $dh{MIGRATE_DBGSYM}) {
 	error("--keep-debug and --dbgsym-migration are mutually exclusive");
 }
-if ($dh{DEBUGPACKAGES} and $dh{MIGRATE_DBGSYM}) {
+if ($dh{DEBUGPACKAGE} and $dh{MIGRATE_DBGSYM}) {
 	error("--dbg-package and --dbgsym-migration are mutually exclusive");
 }
 
@@ -155,7 +155,7 @@ if ($dh{ENABLE_DBGSYM} and $dh{ENABLE_DBGSYM} ne 'auto') {
 	if ($dh{K_FLAG}) {
 		error("--keep-debug and explicit --automatic-dbgsym are mutually exclusive");
 	}
-	if ($dh{DEBUGPACKAGES}) {
+	if ($dh{DEBUGPACKAGE}) {
 		error("--dbg-package and explicit --automatic-dbgsym are mutually exclusive");
 	}
 }
@@ -316,7 +316,7 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 	if ($dh{ENABLE_DBGSYM} and not $keep_debug and package_arch($package) ne 'all' and not is_udeb($package)) {
 		# Avoid creating a dbgsym that would clash with a registered
 		# package or looks like a manual -dbg package.
-		if (not $all_packages{"${package}-dbgsym"} or $package =~ m/-dbg$/) {
+		if (not $all_packages{"${package}-dbgsym"} and $package !~ m/-dbg(?:sym)?$/) {
 			$debugtmp = "debian/.debhelper/${package}/dbgsym-root";
 			$keep_debug = 1;
 			$use_build_id = 2;

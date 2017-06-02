@@ -49,7 +49,8 @@ use vars qw(@EXPORT %dh);
 	    &get_source_date_epoch &is_cross_compiling
 	    &generated_file &autotrigger &package_section
 	    &restore_file_on_clean &restore_all_files
-	    &open_gz &reset_perm_and_owner
+	    &open_gz &reset_perm_and_owner &deprecated_functionality
+	    &log_installed_files
 );
 
 # The Makefile changes this if debhelper is installed in a PREFIX.
@@ -57,6 +58,31 @@ my $prefix="/usr";
 
 sub init {
 	my %params=@_;
+
+	# Check if we can by-pass the expensive Getopt::Long by optimising for the
+	# common case of "-a" or "-i"
+	if (scalar(@ARGV) == 1 && ($ARGV[0] eq '-a' || $ARGV[0] eq '-i') &&
+		! (defined $ENV{DH_OPTIONS} && length $ENV{DH_OPTIONS}) &&
+		! (defined $ENV{DH_INTERNAL_OPTIONS} && length $ENV{DH_INTERNAL_OPTIONS})) {
+
+		# Single -i or -a as dh does it.
+		if ($ARGV[0] eq '-i') {
+			push(@{$dh{DOPACKAGES}}, getpackages('indep'));
+			$dh{DOINDEP} = 1;
+		} else {
+			push(@{$dh{DOPACKAGES}}, getpackages('arch'));
+			$dh{DOARCH} = 1;
+		}
+
+		if (! @{$dh{DOPACKAGES}}) {
+			if (! $dh{BLOCK_NOOP_WARNINGS}) {
+				warning("You asked that all arch in(dep) packages be built, but there are none of that type.");
+			}
+			exit(0);
+		}
+		# Clear @ARGV so we do not hit the expensive case below
+		@ARGV = ();
+	}
 
 	# Check to see if an option line starts with a dash,
 	# or DH_OPTIONS is set.
@@ -503,45 +529,82 @@ sub tmpdir {
 #   * debian/package.name.filename.buildos
 #   * debian/package.name.filename
 #   * debian/name.filename (if the package is the main package)
-sub pkgfile {
-	my $package=shift;
-	my $filename=shift;
 
-	if (defined $dh{NAME}) {
-		$filename="$dh{NAME}.$filename";
-	}
-	
-	# First, check for files ending in buildarch and buildos.
-	my $match;
-	foreach my $file (glob("debian/$package.$filename.*")) {
-		next if ! -f $file;
-		next if $dh{IGNORE} && exists $dh{IGNORE}->{$file};
-		if ($file eq "debian/$package.$filename.".buildarch()) {
-			$match=$file;
-			# buildarch files are used in preference to buildos files.
-			last;
-		}
-		elsif ($file eq "debian/$package.$filename.".buildos()) {
-			$match=$file;
-		}
-	}
-	return $match if defined $match;
+{
+	my %_check_expensive;
 
-	my @try=("debian/$package.$filename");
-	if ($package eq $dh{MAINPACKAGE}) {
-		push @try, "debian/$filename";
-	}
-	
-	foreach my $file (@try) {
-		if (-f $file &&
-		    (! $dh{IGNORE} || ! exists $dh{IGNORE}->{$file})) {
-			return $file;
+	sub pkgfile {
+		my ($package, $filename) = @_;
+		my (@try, $check_expensive);
+
+		if (not exists($_check_expensive{$filename})) {
+			my @f = glob("debian/*.$filename.*");
+			if (not @f or (@f == 1 and $f[0] eq "debian/*.$filename.*")) {
+				$check_expensive = 0;
+			} else {
+				$check_expensive = 1;
+			}
+			$_check_expensive{$filename} = $check_expensive;
+		} else {
+			$check_expensive = $_check_expensive{$filename};
 		}
 
+		# Rewrite $filename after the check_expensive globbing above
+		# as $dh{NAME} is used as a prefix (so the glob above will
+		# cover it).
+		#
+		# In practise, it should not matter as NAME is ether set
+		# globally or not.  But if someone is being "clever" then the
+		# cache is reusable and for the general/normal case, it has no
+		# adverse effects.
+		if (defined $dh{NAME}) {
+			$filename="$dh{NAME}.$filename";
+		}
+
+		if (ref($package) eq 'ARRAY') {
+			# !!NOT A PART OF THE PUBLIC API!!
+			# Bulk test used by dh to speed up the can_skip check.   It
+			# is NOT useful for finding the most precise pkgfile.
+			push(@try, "debian/$filename");
+			for my $pkg (@{$package}) {
+				push(@try, "debian/${pkg}.${filename}");
+				if ($check_expensive) {
+					push(@try,
+						 "debian/${pkg}.${filename}.".buildarch(),
+						 "debian/${pkg}.${filename}.".buildos(),
+					);
+				}
+			}
+		} else {
+			# Avoid checking for buildarch+buildos unless we have reason
+			# to believe that they exist.
+			if ($check_expensive) {
+				push(@try,
+					 "debian/${package}.${filename}.".buildarch(),
+					 "debian/${package}.${filename}.".buildos(),
+					);
+			}
+			push(@try, "debian/$package.$filename");
+			if ($package eq $dh{MAINPACKAGE}) {
+				push @try, "debian/$filename";
+			}
+		}
+		foreach my $file (@try) {
+			if (-f $file &&
+				(! $dh{IGNORE} || ! exists $dh{IGNORE}->{$file})) {
+				return $file;
+			}
+
+		}
+
+		return "";
 	}
 
-	return "";
-
+	# Used by dh to ditch some caches that makes assumptions about
+	# dh_-tools can do, which does not hold for override targets.
+	sub dh_clear_unsafe_cache {
+		%_check_expensive = ();
+	}
 }
 
 # Pass it a name of a binary package, it returns the name to prefix to files
@@ -703,6 +766,7 @@ sub autoscript_sed {
 	}
 }
 
+# Generated files are cleaned by dh_clean AND dh_prep
 sub generated_file {
 	my ($package, $filename, $mkdirs) = @_;
 	my $dir = "debian/.debhelper/generated/${package}";
@@ -855,15 +919,18 @@ sub excludefile {
 			return $ENV{$var};
 		}
 		elsif (! exists($dpkg_arch_output{$var})) {
-			local $_;
-			open(PIPE, '-|', 'dpkg-architecture')
+			# Return here if we already consulted dpkg-architecture
+			# (saves a fork+exec on unknown variables)
+			return if %dpkg_arch_output;
+
+			open(my $fd, '-|', 'dpkg-architecture')
 				or error("dpkg-architecture failed");
-			while (<PIPE>) {
-				chomp;
-				my ($k, $v) = split(/=/, $_, 2);
+			while (my $line = <$fd>) {
+				chomp($line);
+				my ($k, $v) = split(/=/, $line, 2);
 				$dpkg_arch_output{$k} = $v;
 			}
-			close(PIPE);
+			close($fd);
 		}
 		return $dpkg_arch_output{$var};
 	}
@@ -975,26 +1042,22 @@ sub getpackages {
 			else {
 				error("debian/control has a duplicate entry for $package");
 			}
-			$package_type="deb";
 			$included_in_build_profile=1;
-		}
-		if (/^Section:\s(.*)\s*$/i) {
+		} elsif (/^Section:\s(.*)$/i) {
 			$section = $1;
-		}
-		if (/^Architecture:\s*(.*)/i) {
+		} elsif (/^Architecture:\s*(.*)/i) {
 			$arch=$1;
-		}
-		if (/^(?:X[BC]*-)?Package-Type:\s*(.*)/i) {
+		} elsif (/^(?:X[BC]*-)?Package-Type:\s*(.*)/i) {
 			$package_type=$1;
-		}
-		if (/^Multi-Arch: \s*(.*)\s*/i) {
+		} elsif (/^Multi-Arch:\s*(.*)/i) {
 			$multiarch = $1;
-		}
-		# rely on libdpkg-perl providing the parsing functions because
-		# if we work on a package with a Build-Profiles field, then a
-		# high enough version of dpkg-dev is needed anyways
-		if (/^Build-Profiles:\s*(.*)/i) {
-		        my $build_profiles=$1;
+
+		} elsif (/^Build-Profiles:\s*(.*)/i) {
+			# rely on libdpkg-perl providing the parsing functions
+			# because if we work on a package with a Build-Profiles
+			# field, then a high enough version of dpkg-dev is needed
+			# anyways
+			my $build_profiles=$1;
 			eval {
 				require Dpkg::BuildProfiles;
 				my @restrictions=Dpkg::BuildProfiles::parse_build_profiles($build_profiles);
@@ -1009,7 +1072,7 @@ sub getpackages {
 
 		if (!$_ or eof) { # end of stanza.
 			if ($package) {
-				$package_types{$package}=$package_type;
+				$package_types{$package}=$package_type // 'deb';
 				$package_arches{$package}=$arch;
 				$package_multiarches{$package} = $multiarch;
 				$package_sections{$package} = $section || $source_section;
@@ -1028,6 +1091,7 @@ sub getpackages {
 				$source_section = $section;
 			}
 			$package='';
+			$package_type=undef;
 			$arch='';
 			$section='';
 		}
@@ -1362,11 +1426,11 @@ sub restore_file_on_clean {
 	if ($file =~ m{^\.} or $file =~ m{/CVS/} or $file =~ m{/\.svn/}) {
 		# We do not want to smash a Vcs repository by accident.
 		warning("Attempt to store $file, which looks like a VCS file or");
-		warning("a hidden package file (like quilt's \".pc\" directory");
+		warning("a hidden package file (like quilt's \".pc\" directory)");
 		error("This tool probably contains a bug.");
 	}
 	if (-l $file or not -f _) {
-		error("Cannot store $file, which is a non-file (incl. a symlink)");
+		error("Cannot store $file: Can only store regular files (no symlinks, etc.)");
 	}
 	require Digest::SHA;
 
@@ -1436,6 +1500,35 @@ sub open_gz {
 		  or die("open $file [<:gzip] failed: $!");
 	}
 	return $fd;
+}
+
+sub deprecated_functionality {
+	my ($warning_msg, $compat_removal, $removal_msg) = @_;
+	if (defined($compat_removal) and not compat($compat_removal - 1)) {
+		my $msg = $removal_msg // $warning_msg;
+		warning($msg);
+		error("This feature was removed in compat ${compat_removal}.");
+	} else {
+		warning($warning_msg);
+		warning("This feature will be removed in compat ${compat_removal}.")
+		  if defined($compat_removal);
+	}
+	return 1;
+}
+
+sub log_installed_files {
+	my ($package, @patterns) = @_;
+
+	return if $dh{NO_ACT};
+
+	my $log = generated_file($package, 'installed-by-' . basename($0));
+	open(my $fh, '>>', $log);
+	for my $src (@patterns) {
+		print $fh "$src\n";
+	}
+	close($fh);
+
+	return 1;
 }
 
 1

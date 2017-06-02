@@ -432,6 +432,10 @@ in --libexecdir when using autoconf.
 
 B<dh> does not default to enabling --with=python-support
 
+(Obsolete: As the B<dh_pysupport> tool was removed from Debian
+stretch.  Since debhelper/10.3, B<dh> no longer enables this sequence
+add-on regardless of compat level)
+
 =item -
 
 All of the B<dh_auto_>I<*> debhelper programs and B<dh> set
@@ -592,7 +596,7 @@ B<dh_systemd_start> instead.
 
 =item -
 
-The B<-s> (B<--same-arch>) option is removed.
+The B<-s> (B<--same-arch>) option is removed.  Please use B<-a> (B<--arch>) instead.
 
 =item -
 
@@ -631,6 +635,28 @@ On the other hand, this means that rebuild without cleaning
 expect.
 
 The previous behaviour can restored by using B<--with build-stamp>
+
+=item -
+
+The B<makefile> buildsystem now passes B<INSTALL=install
+--strip-program=true> to L<make(1)>.  Derivative buildsystems
+(e.g. B<configure> or B<cmake>) are unaffected by this change.
+
+=item -
+
+The B<--list-missing> and B<--fail-missing> in B<dh_install> has been
+removed.  Please use B<dh_missing> and its corresponding options,
+which can also see the files installed by other helpers.
+
+=item -
+
+The B<--no-restart-on-upgrade> option in dh_installinit has been removed.
+Please use the new name B<--no-stop-on-upgrade>
+
+=item -
+
+The B<autoconf> buildsystem now passes B<--runstatedir=/run> to
+F<./configure>.
 
 =back
 

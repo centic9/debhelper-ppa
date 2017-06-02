@@ -130,8 +130,7 @@ after a particular debhelper command is run.
 		chmod 4755 debian/foo/usr/bin/foo
 
 Python tools are not run by dh by default, due to the continual change
-in that area. (Before compatibility level v9, dh does run B<dh_pysupport>.)
-Here is how to use B<dh_python2>.
+in that area. Here is how to use B<dh_python2>.
 
 	#!/usr/bin/make -f
 	%:
@@ -283,11 +282,6 @@ matches, the last one in the sequence will be used.
 # Stash this away before init modifies it.
 my @ARGV_orig=@ARGV;
 
-if (compat(8, 1)) {
-	# python-support was enabled by default before v9.
-	# (and comes first so python-central loads later and can disable it).
-	unshift @ARGV, "--with=python-support";
-}
 if (not compat(9, 1)) {
 	# Enable autoreconf'ing by default in compat 10 or later.  Use the
 	# sequence add-on so existing --without=autoreconf
@@ -422,6 +416,7 @@ my @i = (qw{
 	dh_strip_nondeterminism
 	dh_compress
 	dh_fixperms
+	dh_missing
 });
 my @ba=qw{
 	dh_strip
@@ -874,6 +869,11 @@ sub run_override {
 		commit_override_log(@todo);
 	}
 
+	# Override targets may introduce new helper files.  Strictly
+	# speaking this *shouldn't* be necessary, but lets make no
+	# assumptions.
+	Debian::Debhelper::Dh_Lib::dh_clear_unsafe_cache();
+
 	return @rest;
 }
 
@@ -1035,22 +1035,22 @@ sub can_skip {
 	my @skipinfo=@{$skipinfo{$command}};
 	return 0 unless @skipinfo;
 
-	foreach my $package (@packages) {
-		foreach my $skipinfo (@skipinfo) {
-			if ($skipinfo=~/^([a-zA-Z0-9-_]+)\((.*)\)$/) {
-				my $type = $1;
-				my $need = $2;
-				if ($type eq 'tmp') {
+	foreach my $skipinfo (@skipinfo) {
+		if ($skipinfo=~/^([a-zA-Z0-9-_]+)\((.*)\)$/) {
+			my $type = $1;
+			my $need = $2;
+			if ($type eq 'tmp') {
+				foreach my $package (@packages) {
 					my $tmp = tmpdir($package);
 					return 0 if -e "$tmp/$need";
-				} else {
-					# Unknown hint - make no assumptions
-					return 0;
 				}
-			}
-			elsif (pkgfile($package, $skipinfo) ne '') {
+			} else {
+				# Unknown hint - make no assumptions
 				return 0;
 			}
+		} else {
+			# Use the secret bulk check call
+			return 0 if pkgfile(\@packages, $skipinfo) ne '';
 		}
 	}
 	return 1;
