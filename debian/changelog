@@ -1,3 +1,9 @@
+debhelper (10.4ubuntu4~ppa1) xenial; urgency=medium
+
+  * Backport latest Ubuntu release.
+
+ -- Dominik Stadler (Ubuntu key) <dominik.stadler@gmx.at>  Sun, 09 Jul 2017 21:13:29 +0200
+
 debhelper (10.4ubuntu3) artful; urgency=medium
 
   * Dh_Lib: When passing -a/-i only, and there are no arch/indep packages,
