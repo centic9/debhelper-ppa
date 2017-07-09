@@ -1,0 +1,52 @@
+Index: git/dh_installchangelogs
+===================================================================
+--- git.orig/dh_installchangelogs	2017-02-11 20:46:25.034285448 +0100
++++ git/dh_installchangelogs	2017-02-25 22:36:18.000000000 +0100
+@@ -19,9 +19,7 @@
+ B<dh_installchangelogs> is a debhelper program that is responsible for
+ installing changelogs into package build directories.
+ 
+-An upstream F<changelog> file may be specified as an option. If none is
+-specified, it looks for files with names that seem likely to be changelogs.
+-(In compatibility level 7 and above.)
++An upstream F<changelog> file may be specified as an option.
+ 
+ If there is an upstream F<changelog> file, it will be installed as
+ F<usr/share/doc/package/changelog> in the package build directory.
+@@ -140,23 +138,6 @@
+ my $upstream_text=$upstream;
+ my $upstream_html;
+ if (! defined $upstream) {
+-	if (! isnative($dh{MAINPACKAGE}) && !compat(6)) {
+-		foreach my $dir (qw{. doc docs}) {
+-			my @files=sort glob("$dir/*");
+-			foreach my $suffix ('', qw(.txt .md .rst)) {
+-				foreach my $name (qw{changelog changes history}) {
+-					my @matches=grep {
+-						lc basename($_) eq "$name$suffix" && -s $_ && ! excludefile($_)
+-					} @files;
+-					if (@matches) {
+-						$upstream=shift @matches;
+-						$upstream_text=$upstream;
+-						last;
+-					}
+-				}
+-			}
+-		}
+-	}
+ 	if (isnative($dh{MAINPACKAGE})) {
+ 		$changelog_name='changelog';
+ 	}
+Index: git/dh_strip
+===================================================================
+--- git.orig/dh_strip	2017-02-11 20:46:25.034285448 +0100
++++ git/dh_strip	2017-02-25 22:36:45.000000000 +0100
+@@ -166,6 +166,8 @@
+ 	error("--dbgsym-migration and --no-automatic-dbgsym are mutually exclusive");
+ }
+ 
++$dh{ENABLE_DBGSYM} = 0 if not $ENV{'DH_BUILD_DDEBS'};
++
+ # This variable can be used to turn off stripping (see Policy).
+ if (get_buildoption('nostrip')) {
+ 	exit;

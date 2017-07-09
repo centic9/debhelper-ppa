@@ -165,6 +165,30 @@ debhelper (10.2.5ubuntu1) artful; urgency=medium
 
  -- Adam Conrad <adconrad@ubuntu.com>  Thu, 20 Apr 2017 19:01:01 -0600
 
+debhelper (10.2.5ubuntu0~ppa4) xenial; urgency=medium
+
+  * Apply changes from 10.2.2ubuntu1 to make dh_strip work with dbgsyms correctly.
+
+ -- Dominik Stadler (Ubuntu key) <dominik.stadler@gmx.at>  Sat, 25 Feb 2017 22:37:44 +0100
+
+debhelper (10.2.5ubuntu0~ppa3) xenial; urgency=medium
+
+  * Reduce dependency on dh-autoreconf to try some more to resolve dependency chain.
+
+ -- Dominik Stadler (Ubuntu key) <dominik.stadler@gmx.at>  Mon, 13 Feb 2017 21:41:31 +0100
+
+debhelper (10.2.5ubuntu0~ppa2) xenial; urgency=medium
+
+  * Reduce dependency on dh-strip-nondeterminism to try to resolve the mexican-standoff.
+
+ -- Dominik Stadler (Ubuntu key) <dominik.stadler@gmx.at>  Sun, 12 Feb 2017 11:17:29 +0100
+
+debhelper (10.2.5ubuntu0~ppa1) xenial; urgency=medium
+
+  * Backport to Xenial.
+
+ -- Dominik Stadler (Ubuntu key) <dominik.stadler@gmx.at>  Sat, 11 Feb 2017 20:51:19 +0100
+
 debhelper (10.2.5) unstable; urgency=medium
 
   [ Translations ]
@@ -223,6 +247,21 @@ debhelper (10.2.3) unstable; urgency=medium
 
  -- Niels Thykier <niels@thykier.net>  Sat, 31 Dec 2016 21:27:54 +0000
 
+<<<<<<< HEAD
+=======
+debhelper (10.2.2ubuntu1~ubuntu16.04.2~ppa1) xenial; urgency=medium
+
+  * Upload for PPA without -backports.
+
+ -- Dominik Stadler (Ubuntu key) <dominik.stadler@gmx.at>  Fri, 25 Nov 2016 22:01:48 +0100
+
+debhelper (10.2.2ubuntu1~ubuntu16.04.1) xenial-backports; urgency=medium
+
+  * No-change backport to xenial
+
+ -- Iain Lane <iain@orangesquash.org.uk>  Fri, 11 Nov 2016 09:48:33 +0000
+
+>>>>>>> ppa/10.2.5
 debhelper (10.2.2ubuntu1) zesty; urgency=medium
 
   * Merge from Debian unstable.  Remaining changes:
@@ -518,6 +557,24 @@ debhelper (9.20160618) unstable; urgency=medium
 
  -- Niels Thykier <niels@thykier.net>  Sat, 18 Jun 2016 14:41:05 +0000
 
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+debhelper (9.20160403ubuntu2~ppa2) trusty; urgency=medium
+
+  * Try with lower versoin of dpkg as they depend on newer 
+    versions of each other!
+
+ -- Dominik Stadler (Ubuntu key) <dominik.stadler@gmx.at>  Sun, 24 Apr 2016 13:38:23 +0200
+
+debhelper (9.20160403ubuntu2~ppa1) trusty; urgency=medium
+
+  * Backport to trusty.
+
+ -- Dominik Stadler (Ubuntu key) <dominik.stadler@gmx.at>  Sun, 24 Apr 2016 11:20:21 +0200
+
+>>>>>>> ppa/10.2.5
 debhelper (9.20160403ubuntu1) yakkety; urgency=medium
 
   * Merge from Debian unstable.  Remaining changes:
@@ -532,6 +589,10 @@ debhelper (9.20160403ubuntu1) yakkety; urgency=medium
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Fri, 22 Apr 2016 16:07:52 +0200
 
+<<<<<<< HEAD
+=======
+>>>>>>> ppa/10.2.2ubuntu1
+>>>>>>> ppa/10.2.5
 debhelper (9.20160403) unstable; urgency=medium
 
   * d/control: Requre dh-autoreconf (>= 12) to ensure
