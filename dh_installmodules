@@ -11,6 +11,8 @@ use warnings;
 use Debian::Debhelper::Dh_Lib;
 use File::Find;
 
+our $VERSION = DH_BUILTIN_VERSION;
+
 =head1 SYNOPSIS
 
 B<dh_installmodules> [S<I<debhelper options>>] [B<-n>] [B<--name=>I<name>]
@@ -81,7 +83,7 @@ sub find_kernel_modules {
 		}
 	}, $searchdir);
 
-	return keys %versions;
+	return sort(keys(%versions));
 }
 
 # PROMISE: DH NOOP WITHOUT modprobe tmp(lib/modules)
@@ -98,8 +100,8 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 	
 	if (! $dh{NOSCRIPTS}) {
 		foreach my $kvers (find_kernel_modules("$tmp/lib/modules")) {
-			autoscript($package,"postinst","postinst-modules","s/#KVERS#/$kvers/g");
-			autoscript($package,"postrm","postrm-modules","s/#KVERS#/$kvers/g");
+			autoscript($package, 'postinst', 'postinst-modules', { 'KVERS' => $kvers });
+			autoscript($package, 'postrm', 'postrm-modules', { 'KVERS' => $kvers });
 		}
 	}
 }
@@ -115,9 +117,3 @@ This program is a part of debhelper.
 Joey Hess <joeyh@debian.org>
 
 =cut
-
-# Local Variables:
-# indent-tabs-mode: t
-# tab-width: 4
-# cperl-indent-level: 4
-# End:

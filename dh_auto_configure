@@ -8,7 +8,10 @@ dh_auto_configure - automatically configure a package prior to building
 
 use strict;
 use warnings;
+use Debian::Debhelper::Dh_Lib;
 use Debian::Debhelper::Dh_Buildsystems;
+
+our $VERSION = DH_BUILTIN_VERSION;
 
 =head1 SYNOPSIS
 
@@ -47,6 +50,8 @@ B<dh_auto_configure> usually passes. For example:
 
 =cut
 
+# PROMISE: DH NOOP WITHOUT buildsystem(configure)
+
 buildsystems_init();
 buildsystems_do();
 
@@ -61,9 +66,3 @@ This program is a part of debhelper.
 Joey Hess <joeyh@debian.org>
 
 =cut
-
-# Local Variables:
-# indent-tabs-mode: t
-# tab-width: 4
-# cperl-indent-level: 4
-# End:

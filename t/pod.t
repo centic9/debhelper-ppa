@@ -4,13 +4,7 @@ use strict;
 use warnings;
 use Test::More;
 
-eval 'use Test::Pod';
+eval { require Test::Pod; Test::Pod->import; };
 plan skip_all => 'Test::Pod required' if $@;
 
-all_pod_files_ok(grep { -x $_ } glob 'dh_*');
-
-# Local Variables:
-# indent-tabs-mode: t
-# tab-width: 4
-# cperl-indent-level: 4
-# End:
+all_pod_files_ok('debhelper.pod', grep { -x $_ } 'dh', glob 'dh_*');

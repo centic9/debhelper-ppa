@@ -10,6 +10,8 @@ use strict;
 use warnings;
 use Debian::Debhelper::Dh_Lib;
 
+our $VERSION = DH_BUILTIN_VERSION;
+
 my $sgmlbasever = "1.28";
 
 =head1 SYNOPSIS
@@ -102,16 +104,16 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 
 		my $centralcat = "/etc/sgml/$package.cat";
 
-		open(CENTRALCAT, ">", "$tmpdir$centralcat") || error("failed to write to $tmpdir$centralcat");
+		open(my $fd, ">", "$tmpdir$centralcat") || error("failed to write to $tmpdir$centralcat");
 		foreach my $sgmldest (@sgmlinstalled) {
-			print CENTRALCAT "CATALOG " . $sgmldest . "\n";
+			print {$fd} "CATALOG " . $sgmldest . "\n";
 		}
-		close CENTRALCAT;
+		close($fd) or error("close $tmpdir$centralcat: $!");
 
 		if (! $dh{NOSCRIPTS}) {
-			autotrigger($package, "activate", "update-sgmlcatalog");
+			autotrigger($package, "activate-await", "update-sgmlcatalog");
 			autoscript($package, "postrm", "postrm-sgmlcatalog",
-				   "s%#CENTRALCAT#%$centralcat%g;");
+				   { 'CENTRALCAT' => $centralcat });
 		}
 	}
 	else {
@@ -131,9 +133,3 @@ F</usr/share/doc/sgml-base-doc/>
 Adam Di Carlo <aph@debian.org>
 
 =cut
-
-# Local Variables:
-# indent-tabs-mode: t
-# tab-width: 4
-# cperl-indent-level: 4
-# End:

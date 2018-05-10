@@ -10,6 +10,8 @@ use strict;
 use warnings;
 use Debian::Debhelper::Dh_Lib;
 
+our $VERSION = DH_BUILTIN_VERSION;
+
 =head1 SYNOPSIS
 
 B<dh_installxfonts> [S<I<debhelper options>>]
@@ -66,7 +68,8 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 		my @cmds;
 		my @cmds_postinst;
 		my @cmds_postrm;
-		foreach my $f (@fontdirs) {
+		# Sort items for reproducible binary package contents.
+		foreach my $f (sort @fontdirs) {
 			# This must come before update-fonts-dir.
 			push @cmds, "update-fonts-scale $f"
 				if -f "$tmp/etc/X11/fonts/$f/$package.scale";
@@ -74,16 +77,19 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 			if (-f "$tmp/etc/X11/fonts/$f/$package.alias") {
 				push @cmds_postinst, "update-fonts-alias --include /etc/X11/fonts/$f/$package.alias $f";
 				push @cmds_postrm, "update-fonts-alias --exclude /etc/X11/fonts/$f/$package.alias $f";
-				addsubstvar($package, "misc:Depends", "xfonts-utils (>= 1:7.5+2)");
 			}
 		}
 
 		autoscript($package, "postinst", "postinst-xfonts",
-			"s:#CMDS#:".join(";", @cmds, @cmds_postinst).":g");
+			{ 'CMDS' => join(";", @cmds, @cmds_postinst) });
 		autoscript($package, "postrm", "postrm-xfonts",
-			"s:#CMDS#:".join(";", @cmds, @cmds_postrm).":g");
+			{ 'CMDS' => join(";", @cmds, @cmds_postrm) });
 
-		addsubstvar($package, "misc:Depends", "xfonts-utils");
+		if (@cmds_postrm) {
+			addsubstvar($package, "misc:Depends", "xfonts-utils", ">= 1:7.5+2");
+		} else {
+			addsubstvar($package, "misc:Depends", "xfonts-utils");
+		}
 	}
 }
 
@@ -98,9 +104,3 @@ This program is a part of debhelper.
 Joey Hess <joeyh@debian.org>
 
 =cut
-
-# Local Variables:
-# indent-tabs-mode: t
-# tab-width: 4
-# cperl-indent-level: 4
-# End:

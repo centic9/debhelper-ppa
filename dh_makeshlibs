@@ -10,6 +10,8 @@ use strict;
 use warnings;
 use Debian::Debhelper::Dh_Lib;
 
+our $VERSION = DH_BUILTIN_VERSION;
+
 =head1 SYNOPSIS
 
 B<dh_makeshlibs> [S<I<debhelper options>>] [B<-m>I<major>] [B<-V>I<[dependencies]>] [B<-n>] [B<-X>I<item>] [S<B<--> I<params>>]
@@ -136,8 +138,6 @@ init(options => {
 	"add-udeb=s" => \$dh{SHLIBS_UDEB},
 });
 
-my $objdump=cross_command("objdump");
-
 my $ok=1;
 
 foreach my $package (@{$dh{DOPACKAGES}}) {
@@ -145,11 +145,13 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 	
 	my $tmp=tmpdir($package);
 
+	my $objdump = cross_command($package, "objdump");
+
 	my (%seen, $unversioned_so);
 	my $need_ldconfig = 0;
 	my $shlibs_file = pkgfile($package, 'shlibs');
 
-	doit("rm", "-f", "$tmp/DEBIAN/shlibs");
+	rm_files("$tmp/DEBIAN/shlibs");
 
 	# So, we look for files or links to existing files with names that
 	# match "*.so.*". And we only look at real files not
@@ -158,15 +160,17 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 	# because only if we can get a library name and a major number from
 	# objdump is anything actually added.
 	my $exclude='';
-	my (@udeb_lines, @lib_files);
+	my (@udeb_lines, @deb_lines, @lib_files);
 	if (defined($dh{EXCLUDE_FIND}) && $dh{EXCLUDE_FIND} ne '') {
 		$exclude="! \\( $dh{EXCLUDE_FIND} \\) ";
 	}
-	open (FIND, "find $tmp -type f \\( -name '*.so' -or -name '*.so.*' \\) $exclude | LC_ALL=C sort |");
-	while (<FIND>) {
+	open (FIND, "test -d $tmp && find $tmp -type f \\( -name '*.so' -or -name '*.so.*' \\) $exclude | LC_ALL=C sort |");
+	while (my $lib_file = <FIND>) {
 		my ($library, $major);
-		push @lib_files, $_;
-		my $ret=`$objdump -p $_`;
+		chomp($lib_file);
+		next if not is_so_or_exec_elf_file($lib_file);
+		push(@lib_files, $lib_file) if compat(11);
+		my $ret = compat(10) ? `$objdump -p "$lib_file"` : qx_cmd($objdump, '-p', $lib_file);
 		if ($ret=~m/\s+SONAME\s+(.*)\.so\.(.*)/) {
 			# proper soname format
 			$library=$1;
@@ -176,15 +180,15 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 			# idiotic crap soname format
 			$library=$1;
 			$major=$2;
-		} elsif ($ret =~ m/\s+SONAME\s+(?:.*)\.so/) {
+		} elsif ($ret =~ m/\s+SONAME\s+(?:\S)/) {
 			$unversioned_so = 1;
+			push(@lib_files, $lib_file) if not compat(11);
 		}
 
 		if (defined($dh{M_PARAMS}) && $dh{M_PARAMS} ne '') {
 			$major=$dh{M_PARAMS};
 		}
-		
-		install_dir("$tmp/DEBIAN");
+
 		my $deps=$package;
 		if ($dh{V_FLAG_SET}) {
 			if ($shlibs_file) {
@@ -212,15 +216,16 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 		if (defined($library) && defined($major) && defined($deps) &&
 		      $library ne '' && $major ne '' && $deps ne '') {
 			$need_ldconfig=1;
+			push(@lib_files, $lib_file) if not compat(11);
 			# Prevent duplicate lines from entering the file.
 			my $line="$library $major $deps";
 			if (! $seen{$line}) {
 				$seen{$line}=1;
-				complex_doit("echo '$line' >>$tmp/DEBIAN/shlibs");
+				push(@deb_lines, $line);
 				if (defined($dh{SHLIBS_UDEB}) && $dh{SHLIBS_UDEB} ne '') {
 					my $udeb_deps = $deps;
 					$udeb_deps =~ s/\Q$package\E/$dh{SHLIBS_UDEB}/e;
-			    		$line="udeb: "."$library $major $udeb_deps";
+					$line="udeb: $library $major $udeb_deps";
 					push @udeb_lines, $line;
 				}
 			}
@@ -228,18 +233,25 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 	}
 	close FIND;
 
-	# Write udeb: lines last.
-	foreach (@udeb_lines) {
-		complex_doit("echo '$_' >>$tmp/DEBIAN/shlibs");
-	}
-
 	if ($shlibs_file) {
 		install_dir("$tmp/DEBIAN");
 		install_file($shlibs_file, "$tmp/DEBIAN/shlibs");
+	} elsif (@deb_lines or @udeb_lines) {
+		install_dir("$tmp/DEBIAN");
+		if ($dh{VERBOSE}) {
+			verbose_print('echo ' . escape_shell($_) . ' >> ' . escape_shell("$tmp/DEBIAN/shlibs"))
+				for @deb_lines, @udeb_lines;
+		}
+		if (not $dh{NO_ACT}) {
+			open(my $shlibs_fd, '>', "$tmp/DEBIAN/shlibs") or error("open($tmp/DEBIAN/shlibs): $!");
+			# Write the shlibs file with the udeb: lines last.
+			print {$shlibs_fd} "$_\n" for @deb_lines, @udeb_lines;
+			close($shlibs_fd) or error("close($tmp/DEBIAN/shlibs");
+		}
 	}
 
 	if (-e "$tmp/DEBIAN/shlibs") {
-		reset_perm_and_owner('0644', "$tmp/DEBIAN/shlibs");
+		reset_perm_and_owner(0644, "$tmp/DEBIAN/shlibs");
 	}
 
 	# dpkg-gensymbols files
@@ -263,7 +275,7 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 			) && $ok;
 
 		if (-f "$tmp/DEBIAN/symbols" and -s _ == 0) {
-			doit("rm", "-f", "$tmp/DEBIAN/symbols");
+			rm_files("$tmp/DEBIAN/symbols");
 		} elsif ($unversioned_so) {
 			# There are a few "special" libraries (e.g. nss/nspr)
 			# which do not have versioned SONAMES.  However the
@@ -295,9 +307,3 @@ This program is a part of debhelper.
 Joey Hess <joeyh@debian.org>
 
 =cut
-
-# Local Variables:
-# indent-tabs-mode: t
-# tab-width: 4
-# cperl-indent-level: 4
-# End:

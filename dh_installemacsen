@@ -10,6 +10,8 @@ use strict;
 use warnings;
 use Debian::Debhelper::Dh_Lib;
 
+our $VERSION = DH_BUILTIN_VERSION;
+
 =head1 SYNOPSIS
 
 B<dh_installemacsen> [S<I<debhelper options>>] [B<-n>] [B<--priority=>I<n>] [B<--flavor=>I<foo>]
@@ -123,11 +125,11 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 	if ($emacsen_install ne '' || $emacsen_remove ne '') {
 		if (! $dh{NOSCRIPTS}) {
 			autoscript($package,"preinst","preinst-emacsen",
-				"s/#PACKAGE#/$package/g");
+				{ 'PACKAGE' => $package });
 			autoscript($package,"postinst","postinst-emacsen",
-				"s/#PACKAGE#/$package/g");
+				{ 'PACKAGE' => $package });
 			autoscript($package,"prerm","prerm-emacsen",
-				"s/#PACKAGE#/$package/g");
+				{ 'PACKAGE' => $package });
 		}
 	}
 }
@@ -144,9 +146,3 @@ This program is a part of debhelper.
 Joey Hess <joeyh@debian.org>
 
 =cut
-
-# Local Variables:
-# indent-tabs-mode: t
-# tab-width: 4
-# cperl-indent-level: 4
-# End:

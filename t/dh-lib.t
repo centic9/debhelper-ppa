@@ -4,9 +4,14 @@ use strict;
 use warnings;
 use Test::More;
 
-plan(tests => 10);
+use File::Basename qw(dirname);
+use lib dirname(__FILE__);
+use Test::DH;
 
-use_ok('Debian::Debhelper::Dh_Lib');
+use Debian::Debhelper::Dh_Lib qw(!dirname);
+
+plan(tests => 1);
+
 
 sub ok_autoscript_result {
 	ok(-f 'debian/testpackage.postinst.debhelper');
@@ -16,22 +21,25 @@ sub ok_autoscript_result {
 	like(join('',@c), qr{update-rc\.d test-script test parms with"quote >/dev/null});
 }
 
-ok(unlink('debian/testpackage.postinst.debhelper') >= 0);
 
-ok(autoscript('testpackage', 'postinst', 'postinst-init',
-              's/#SCRIPT#/test-script/g; s/#INITPARMS#/test parms with\\"quote/g'));
-ok_autoscript_result;
+each_compat_subtest {
 
-ok(unlink('debian/testpackage.postinst.debhelper') >= 0);
+	ok(autoscript('testpackage', 'postinst', 'postinst-init',
+				  's/#SCRIPT#/test-script/g; s/#INITPARMS#/test parms with\\"quote/g'));
+	ok_autoscript_result;
 
-ok(autoscript('testpackage', 'postinst', 'postinst-init',
-              sub { s/#SCRIPT#/test-script/g; s/#INITPARMS#/test parms with"quote/g } ));
-ok_autoscript_result;
+	ok(rm_files('debian/testpackage.postinst.debhelper'));
 
-ok(unlink('debian/testpackage.postinst.debhelper') >= 0);
+	ok(autoscript('testpackage', 'postinst', 'postinst-init',
+				  sub { s/\#SCRIPT\#/test-script/g; s/\#INITPARMS\#/test parms with"quote/g } ));
+	ok_autoscript_result;
 
-# Local Variables:
-# indent-tabs-mode: t
-# tab-width: 4
-# cperl-indent-level: 4
-# End:
+	ok(rm_files('debian/testpackage.postinst.debhelper'));
+
+	ok(autoscript('testpackage', 'postinst', 'postinst-init',
+				  { 'SCRIPT' => 'test-script', 'INITPARMS' => 'test parms with"quote' } ));
+	ok_autoscript_result;
+
+	ok(rm_files('debian/testpackage.postinst.debhelper'));
+}
+

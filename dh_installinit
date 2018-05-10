@@ -11,6 +11,8 @@ use warnings;
 use Debian::Debhelper::Dh_Lib;
 use File::Find;
 
+our $VERSION = DH_BUILTIN_VERSION;
+
 =head1 SYNOPSIS
 
 B<dh_installinit> [S<I<debhelper options>>] [B<--name=>I<name>] [B<-n>] [B<-R>] [B<-r>] [B<-d>] [S<B<--> I<params>>]
@@ -18,8 +20,8 @@ B<dh_installinit> [S<I<debhelper options>>] [B<--name=>I<name>] [B<-n>] [B<-R>] 
 =head1 DESCRIPTION
 
 B<dh_installinit> is a debhelper program that is responsible for installing
-init scripts with associated defaults files, as well as upstart job files,
-and systemd service files into package build directories.
+init scripts with associated defaults files.  In compatibility levels up to
+11, B<dh_installinit> also handled upstart job files and systemd service files.
 
 It also automatically generates the F<postinst> and F<postrm> and F<prerm>
 commands needed to set up the symlinks in F</etc/rc*.d/> to start and stop
@@ -47,8 +49,13 @@ build directory.
 
 =item debian/I<package>.upstart
 
-If this exists, it is installed into etc/init/I<package>.conf in the package
-build directory.
+In compatibility level 11, this file will trigger an error with a reminder
+about ensuring the proper removal of the upstart file in the previous package
+version.  Please consider using the "rm_conffile" feature from
+L<dh_installdeb(1)> to ensure the proper removal of previous upstart files.
+
+In compatibility level 10, if this file exists, it is installed into
+etc/init/I<package>.conf in the package build directory.
 
 =item debian/I<package>.service
 
@@ -118,7 +125,7 @@ the service to be restarted but be stopped during the upgrade, then please
 use B<--no-restart-after-upgrade> (note the "after-upgrade").
 
 Note that the B<--no-restart-on-upgrade> alias is deprecated and will
-be removed in compat 11.  This is to avoid confusion with the
+be removed in compat 12.  This is to avoid confusion with the
 B<--no-restart-after-upgrade> option.  The B<--no-stop-on-upgrade>
 variant was introduced in debhelper 10.2 (included in Debian stretch).
 
@@ -126,6 +133,20 @@ variant was introduced in debhelper 10.2 (included in Debian stretch).
 
 Do not start the init script on install or upgrade, or stop it on removal.
 Only call B<update-rc.d>. Useful for rcS scripts.
+
+=item B<--no-enable>
+
+Disable the init script on purge, but do not enable them on install.
+This implies a versioned dependency on B<init-system-helpers (>=
+1.51)> as it is the first (functional) version that supports
+B<<update-rc.d <script> defaults-disabled>>.
+
+B<Note> that this option does not affect whether the services are
+started.  Please remember to also use B<--no-start> if the service
+should not be started.
+
+Cannot be combined with B<-u>I<params>,
+B<--update-rcd-params=>I<params>, or B<--> I<params>.
 
 =item B<-d>, B<--remove-d>
 
@@ -140,8 +161,11 @@ described below.)
 
 =item B<--> I<params>
 
-Pass I<params> to L<update-rc.d(8)>. If not specified, B<defaults> will be
-passed to L<update-rc.d(8)>.
+Pass I<params> to L<update-rc.d(8)>. If not specified, B<defaults> (or
+B<defaults-disabled> with B<--no-enable>) will be passed to
+L<update-rc.d(8)>.
+
+Cannot be combined with B<--no-enable>.
 
 =item B<--name=>I<name>
 
@@ -189,16 +213,19 @@ init(options => {
 	"no-restart-on-upgrade" => sub {
 		$dh{R_FLAG} = 1;
 		deprecated_functionality("--no-restart-on-upgrade has been renamed to --no-stop-on-upgrade",
-								 11);
+								 12);
 	},
 	"no-start" => \$dh{NO_START},
 	"R|restart-after-upgrade!" => \$dh{RESTART_AFTER_UPGRADE},
 	"init-script=s" => \$dh{INIT_SCRIPT},
 	"update-rcd-params=s", => \$dh{U_PARAMS},
 	"remove-d" => \$dh{D_FLAG},
+	"no-enable" => \$dh{NO_ENABLE},
 });
 
 # PROMISE: DH NOOP WITHOUT service tmpfile default upstart init init.d tmp(usr/lib/tmpfiles.d) tmp(etc/tmpfiles.d)
+
+my %snippet_options = ('snippet-order' => 'service');
 
 foreach my $package (@{$dh{DOPACKAGES}}) {
 	my $tmp=tmpdir($package);
@@ -254,6 +281,17 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 	}
 
 	my $job=pkgfile($package,"upstart");
+	if ($job ne '' and not compat(11)) {
+		isnative($package); # For the side-effect of setting $dh{VERSION}
+		warning("Detected an upstart file; these are no longer supported by dh_installinit in compat 11");
+		warning("Please ensure a proper removal by adding a \"rm_conffile\" line in debian/<pkg>.maintscript");
+		warning("Example maintscript line:");
+		warning("     rm_conffile /etc/init/${jobfile}.conf $dh{VERSION}");
+		warning("(Note: the example is a best-effort guess and it is not always correct! Please verify before use)");
+		warning("see \"man dh_installdeb\" for more information about the maintscript file");
+		warning("");
+		error("upstart jobs are no longer supported!  Please remove $job and check if you need to add a conffile removal");
+	}
 	if ($job ne '' && ! $dh{ONLYSCRIPTS}) {
 		install_dir("$tmp/etc/init");
 		install_file($job, "$tmp/etc/init/$jobfile.conf");
@@ -294,6 +332,8 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 			no_chdir => 1,
 		}, $tmp);
 		if (@tmpfiles > 0) {
+			# Not migrated to hashref based autoscripts.  This will
+			# happen as people migrate to dh_installsystemd.
 			autoscript($package,"postinst", "postinst-init-tmpfiles",
 				"s,#TMPFILES#," . join(" ", sort @tmpfiles).",g");
 		}
@@ -303,13 +343,16 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 		# This is set by the -u "foo" command line switch, it's
 		# the parameters to pass to update-rc.d. If not set,
 		# we have to say "defaults".
-		my $params='';
-		if (defined($dh{U_PARAMS})) {
+		my $params = 'defaults';
+		if ($dh{NO_ENABLE}) {
+			$params = 'defaults-disabled';
+			addsubstvar($package, "misc:Depends", "init-system-helpers (>= 1.51)");
+		}
+
+		if (defined($dh{U_PARAMS}) and @{$dh{U_PARAMS}}) {
+			error("--no-enable and -- params/-u/--update-rcd-params/ are mutually exclusive") if $dh{NO_ENABLE};
 			$params=join(' ',@{$dh{U_PARAMS}});
 		}	
-		if ($params eq '') {
-			$params="defaults";
-		}
 		
 		if (! $dh{NOSCRIPTS}) {
 			if (! $dh{NO_START}) {
@@ -317,34 +360,40 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 					# update-rc.d, and restart (or
 					# start if new install) script
 					autoscript($package,"postinst", "postinst-init-restart",
-						"s/#SCRIPT#/$script/g;s/#INITPARMS#/$params/g;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/g");
+						{ 'SCRIPT' => $script, 'INITPARMS' => $params, 'ERROR_HANDLER' => $dh{ERROR_HANDLER} },
+						\%snippet_options);
 				}
 				else {
 					# update-rc.d, and start script
 					autoscript($package,"postinst", "postinst-init",
-						"s/#SCRIPT#/$script/g;s/#INITPARMS#/$params/g;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/g");
+						{ 'SCRIPT' => $script, 'INITPARMS' => $params, 'ERROR_HANDLER' => $dh{ERROR_HANDLER} },
+						\%snippet_options);
 				}
 			
 				if ($dh{R_FLAG} || $dh{RESTART_AFTER_UPGRADE}) {
 					# stops script only on remove
 					autoscript($package,"prerm","prerm-init-norestart",
-						"s/#SCRIPT#/$script/g;s/#INITPARMS#/$params/g;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/g");
+						{ 'SCRIPT' => $script, 'ERROR_HANDLER' => $dh{ERROR_HANDLER} },
+						\%snippet_options);
 				}
 				else {
 					# always stops script
 					autoscript($package,"prerm","prerm-init",
-						"s/#SCRIPT#/$script/g;s/#INITPARMS#/$params/g;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/g");
+						{ 'SCRIPT' => $script, 'ERROR_HANDLER' => $dh{ERROR_HANDLER} },
+						\%snippet_options);
 				}
 			}
 			else {
 				# just update-rc.d
 				autoscript($package,"postinst", "postinst-init-nostart",
-					"s/#SCRIPT#/$script/g;s/#INITPARMS#/$params/g;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/g");
+					{ 'SCRIPT' => $script, 'INITPARMS' => $params, 'ERROR_HANDLER' => $dh{ERROR_HANDLER} },
+					\%snippet_options);
 			}
 
 			# removes rc.d links
 			autoscript($package,"postrm","postrm-init",
-				"s/#SCRIPT#/$script/g;s/#INITPARMS#/$params/g;s/#ERROR_HANDLER#/$dh{ERROR_HANDLER}/g");
+				{ 'SCRIPT' => $script, 'ERROR_HANDLER' => $dh{ERROR_HANDLER} },
+				\%snippet_options);
 		}
 	}
 }
@@ -364,9 +413,3 @@ Steve Langasek <steve.langasek@canonical.com>
 Michael Stapelberg <stapelberg@debian.org>
 
 =cut
-
-# Local Variables:
-# indent-tabs-mode: t
-# tab-width: 4
-# cperl-indent-level: 4
-# End:

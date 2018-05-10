@@ -11,6 +11,8 @@ use warnings;
 use Debian::Debhelper::Dh_Lib;
 use Debian::Debhelper::Dh_Buildsystems;
 
+our $VERSION = DH_BUILTIN_VERSION;
+
 =head1 SYNOPSIS
 
 B<dh_auto_clean> [S<I<build system options>>] [S<I<debhelper options>>] [S<B<--> I<params>>]
@@ -44,6 +46,8 @@ B<dh_auto_clean> usually passes.
 
 =cut
 
+# PROMISE: DH NOOP WITHOUT buildsystem(clean)
+
 inhibit_log();
 buildsystems_init();
 buildsystems_do();
@@ -59,9 +63,3 @@ This program is a part of debhelper.
 Joey Hess <joeyh@debian.org>
 
 =cut
-
-# Local Variables:
-# indent-tabs-mode: t
-# tab-width: 4
-# cperl-indent-level: 4
-# End:

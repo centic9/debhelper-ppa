@@ -1,4 +1,4 @@
-Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 
 Files: *
 Copyright: 1997-2011 Joey Hess <joeyh@debian.org>
@@ -10,7 +10,7 @@ Copyright: 1997-2011 Joey Hess <joeyh@debian.org>
 License: public-domain
  These files are in the public domain.
  .
- Pedants who belive I cannot legally say that code I have written is in
+ Pedants who believe I cannot legally say that code I have written is in
  the public domain may consider them instead to be licensed as follows:
  .
  Redistribution and use in source and binary forms, with or without
@@ -66,11 +66,11 @@ Files: dh_systemd_enable dh_systemd_start
 Copyright: 2013 Michael Stapelberg
 License: BSD-3-clause
 
-Files: Debian/Debhelper/Buildsystem* Debian/Debhelper/Dh_Buildsystems.pm
+Files: lib/Debian/Debhelper/Buildsystem* lib/Debian/Debhelper/Dh_Buildsystems.pm
 Copyright: 2008-2009 Modestas Vainius
 License: GPL-2+
 
-Files: Debian/Debhelper/Buildsystem/qmake.pm
+Files: lib/Debian/Debhelper/Buildsystem/qmake.pm
 Copyright: 2010 Kel Modderman
 License: GPL-2+
 

@@ -12,6 +12,8 @@ use Debian::Debhelper::Dh_Lib;
 use File::Find;
 use Cwd qw(getcwd abs_path);
 
+our $VERSION = DH_BUILTIN_VERSION;
+
 =head1 SYNOPSIS
 
 B<dh_systemd_start> [S<I<debhelper options>>] [B<--restart-after-upgrade>] [B<--no-stop-on-upgrade>] [S<I<unit file> ...>]
@@ -77,6 +79,10 @@ B<dh_systemd_start> manually.
 
 =cut
 
+if (not compat(10)) {
+	error("dh_systemd_start is no longer used in compat >= 11, please use dh_installsystemd instead");
+}
+
 $dh{RESTART_AFTER_UPGRADE} = 1 if not compat(9);
 
 init(options => {
@@ -95,16 +101,11 @@ init(options => {
 sub extract_key {
 	my ($unit_path, $key) = @_;
 	my @values;
-	my $fh;
 
-	if ($dh{NO_ALSO}) {
-		return @values;
-	}
+	return if $dh{NO_ALSO};
 
-	if (!open($fh, '<', $unit_path)) {
-		warning("Cannot open($unit_path) for extracting the Also= line(s)");
-		return;
-	}
+	open(my $fh, '<', $unit_path) or error("Cannot open($unit_path) for extracting the Also= line(s): $!");
+
 	while (my $line = <$fh>) {
 		chomp($line);
 
@@ -127,6 +128,9 @@ sub extract_key {
 
 # PROMISE: DH NOOP WITHOUT tmp(lib/systemd/system)
 
+my %requested_files = map { basename($_) => 1 } @ARGV;
+my %installed_files;
+
 foreach my $package (@{$dh{DOPACKAGES}}) {
 	my $tmpdir = tmpdir($package);
 	my @installed_units;
@@ -138,10 +142,10 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 		wanted => sub {
 			my $name = $File::Find::name;
 			return unless -f;
-			return unless $name =~ m,^$tmpdir/lib/systemd/system/[^/]+$,;
+			return unless $name =~ m,^\Q${tmpdir}\E/lib/systemd/system/[^/]+$,;
 			if (-l) {
 				my $target = abs_path(readlink());
-				$target =~ s,^$oldcwd/,,g;
+				$target =~ s,^\Q${oldcwd}\E/,,g;
 				$aliases{$target} = [ $_ ];
 			} else {
 				push @installed_units, $name;
@@ -180,12 +184,18 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 			my ($full) = grep { basename($_) eq $base } @installed_units;
 			if (defined($full)) {
 				$name = $full;
-			} else {
+			} elsif (not exists($requested_files{$base})) {
 				warning(qq|Could not find "$name" in the /lib/systemd/system directory of $package. | .
 					qq|This could be a typo, or using Also= with a service file from another package. | .
 					qq|Please check carefully that this message is harmless.|);
+			} else {
+				# Ignore an explicitly requested file that is missing; happens when we are acting on
+				# multiple packages and only a subset of them have the unit file.
+				next;
 			}
 		}
+
+		$installed_files{$base} = 1 if exists($requested_files{$base});
 
 		# Skip template service files like e.g. getty@.service.
 		# Enabling, disabling, starting or stopping those services
@@ -216,12 +226,14 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 
 	next if @units == 0;
 
+	# Wrap the basenames in '' to preserve \x2d when the shell parses the
+	# name.  (#764730)
+	my $unitargs = join(' ', sort map { q{'} . basename($_) . q{'} } @units);
 	# The $package and $sed parameters are always the same.
 	# This wrapper function makes the following logic easier to read.
 	my $sd_autoscript = sub {
 		my ($script, $filename) = @_;
-		my $unitargs = join(" ", sort map { basename($_) } @units);
-		autoscript($package, $script, $filename, "s/#UNITFILES#/$unitargs/");
+		autoscript($package, $script, $filename, { 'UNITFILES' => $unitargs });
 	};
 
 	if ($dh{RESTART_AFTER_UPGRADE}) {
@@ -241,6 +253,17 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 		# always stop service
 		$sd_autoscript->("prerm", "prerm-systemd");
 	}
+}
+
+if (%requested_files) {
+	my $any_missing = 0;
+	for my $name (sort(keys(%requested_files))) {
+		if (not exists($installed_files{$name})) {
+			warning(qq{Requested unit "$name" but it was not found in any package acted on.});
+			$any_missing = 1;
+		}
+	}
+	error("Could not handle all of the requested services") if $any_missing;
 }
 
 =head1 SEE ALSO

@@ -10,6 +10,8 @@ use strict;
 use warnings;
 use Debian::Debhelper::Dh_Lib;
 
+our $VERSION = DH_BUILTIN_VERSION;
+
 =head1 SYNOPSIS
 
 B<dh_installwm> [S<I<debhelper options>>] [B<-n>] [B<--priority=>I<n>] [S<I<wm> ...>]
@@ -19,8 +21,9 @@ B<dh_installwm> [S<I<debhelper options>>] [B<-n>] [B<--priority=>I<n>] [S<I<wm> 
 B<dh_installwm> is a debhelper program that is responsible for
 generating the F<postinst> and F<prerm> commands that register a window manager
 with L<update-alternatives(8)>. The window manager's man page is also 
-registered as a slave symlink (in v6 mode and up), if it is found in 
-F<usr/share/man/man1/> in the package build directory.
+registered as a slave symlink (in v6 mode and up).  It must be installed in
+F<usr/share/man/man1/> in the package build directory prior to calling
+B<dh_installwm>.  In compat 9 and earlier, the manpage was optional.
 
 =head1 FILES
 
@@ -74,6 +77,8 @@ if (@ARGV) {
 	}
 }
 
+my $nodocs = is_build_profile_active('nodoc') || get_buildoption('nodoc') ? 1 : 0;
+
 # PROMISE: DH NOOP WITHOUT wm
 
 foreach my $package (@{$dh{DOPACKAGES}}) {
@@ -91,23 +96,25 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 
 	if (! $dh{NOSCRIPTS}) {
 WM:		foreach my $wm (@wm) {
-			autoscript($package,"prerm","prerm-wm","s:#WM#:$wm:g");
+			autoscript($package,"prerm","prerm-wm", { 'WM' => $wm });
 
 			my $wmman;
 			if (! compat(5)) {
 				foreach my $ext (".1", ".1x") {
 					$wmman="/usr/share/man/man1/".basename($wm).$ext;
 					if (-e "$tmp$wmman" || -e "$tmp$wmman.gz") {
-						autoscript($package,"postinst","postinst-wm","s:#WM#:$wm:g;s:#WMMAN#:$wmman.gz:g;s/#PRIORITY#/$dh{PRIORITY}/g",);
+						autoscript($package,"postinst","postinst-wm", { 'WM' => $wm, 'WMMAN' => "${wmman}.gz" , 'PRIORITY' => $dh{PRIORITY} });
 						next WM;
 					}
 				}
 			}
-			if (! compat(9)) {
+			if (not compat(9) and not $nodocs) {
 				error("no manpage found (creating an x-window-manager alternative requires a slave symlink for the manpage)");
+			} else {
+				warning("no manpage found (creating an x-window-manager alternative requires a slave symlink for the manpage)");
 			}
 			# Reaching this code means a broken package will be produced.
-			autoscript($package,"postinst","postinst-wm-noman","s:#WM#:$wm:g;s/#PRIORITY#/$dh{PRIORITY}/g",);
+			autoscript($package,"postinst","postinst-wm-noman", { 'WM' => $wm, 'PRIORITY' => $dh{PRIORITY} });
 		}
 	}
 }
@@ -123,9 +130,3 @@ This program is a part of debhelper.
 Joey Hess <joeyh@debian.org>
 
 =cut
-
-# Local Variables:
-# indent-tabs-mode: t
-# tab-width: 4
-# cperl-indent-level: 4
-# End:

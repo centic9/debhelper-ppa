@@ -2,34 +2,54 @@ Source: debhelper
 Section: devel
 Priority: optional
 Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
-XSBC-Original-Maintainer: Debhelper Maintainers <debhelper-devel@lists.alioth.debian.org>
+XSBC-Original-Maintainer: Debhelper Maintainers <debhelper@packages.debian.org>
 Uploaders: Niels Thykier <niels@thykier.net>,
-           Bernhard R. Link <brlink@debian.org>
-Build-Depends: dpkg-dev (>= 1.18.0~),
+Build-Depends: dpkg (>= 1.19.0.5~),
+               dpkg-dev (>= 1.19.0.5~),
                perl:any,
-               po4a (>= 0.24)
-Standards-Version: 3.9.8
-Vcs-Git: https://anonscm.debian.org/git/debhelper/debhelper.git
-Vcs-Browser: https://anonscm.debian.org/git/debhelper/debhelper.git
+               po4a,
+Rules-Requires-Root: no
+Standards-Version: 4.1.3
+Testsuite: autopkgtest-pkg-perl
+Vcs-Git: https://salsa.debian.org/debian/debhelper.git
+Vcs-Browser: https://salsa.debian.org/debian/debhelper
 
 Package: debhelper
 Architecture: all
 Depends: autotools-dev,
-         binutils,
-         dh-autoreconf (>= 12~),
+# Version 12 is where dh-autoreconf supports --sourcedirectory.
+# Version 16 fixes #887482, version 17 fixes #889567
+# Constraint can be relaxed if packages do not rely/require any of the
+# above fixes
+         dh-autoreconf (>= 17~),
+# Version constraint is to get a version of dh-strip-nondeterminism
+# without several bugs.  The constraint can be relaxed if an older
+# version is sufficient.
          dh-strip-nondeterminism (>= 0.028~),
-         dpkg (>= 1.16.2),
-         dpkg-dev (>= 1.18.23ubuntu3),
+# Rules-Requires-Root support.  Otherwise it stops at 1.18.0/1.18.2 for dbgsym support.
+         dpkg (>= 1.19.0.5~),
+         dpkg-dev (>= 1.19.0.5~),
          file (>= 3.23),
          libdpkg-perl (>= 1.17.14),
-         man-db (>= 2.5.1-1),
+# makefile.pm uses -O which according to #768791 requires make (>= 4~).
+# The -O is an aid to maintainers, debhelper works perfectly fine without it.
+# (commented to avoid issues with make-guile, #892586)
+#         make (>= 4~),
+         man-db,
          po-debconf,
          ${misc:Depends},
          ${perl:Depends}
-Breaks: dh-systemd (<< 1.38)
+Breaks: dh-systemd (<< 1.38),
+# To ensure cmake understands -DCMAKE_INSTALL_RUNSTATEDIR=/run as used in compat 11
+# - Can be dropped (with the caveat that cmake packages may behave differently
+#   depending on the version of cmake).
+        cmake (<< 3.9~),
+# meson build system uses --wrap-mode, which requires meson (>= 0.40.0)
+        meson (<< 0.40.0~),
 Replaces: dh-systemd (<< 1.38), pkg-create-dbgsym
 Conflicts: pkg-create-dbgsym
-Suggests: dh-make
+Suggests: dh-make, dwz
+Provides: ${dh:CompatLevels}
 Multi-Arch: foreign
 Description: helper programs for debian/rules
  A collection of programs that can be used in a debian/rules file to
@@ -41,7 +61,6 @@ Description: helper programs for debian/rules
 
 Package: dh-systemd
 Section: oldlibs
-Priority: extra
 Architecture: all
 Multi-Arch: foreign
 Depends: debhelper (>= 9.20160709),

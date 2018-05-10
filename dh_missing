@@ -8,8 +8,9 @@ dh_missing - check for missing files
 
 use strict;
 use warnings;
-use File::Find;
 use Debian::Debhelper::Dh_Lib;
+
+our $VERSION = DH_BUILTIN_VERSION;
 
 =head1 SYNOPSIS
 
@@ -40,11 +41,11 @@ built.
 List the files that are deliberately not installed in I<any> binary
 package.  Paths listed in this file are ignored by B<dh_missing>.
 However, it is B<not> a method to exclude files from being installed
-by B<dh_install>. Please use the B<--exclude> B<dh_install> option for
-that.
+by any of the debhelper tool.  If you want a tool to not install a
+given file, please use its B<--exclude> option (where available).
 
-Please keep in mind that B<dh_missing> will B<not> expand wildcards in
-this file.
+B<dh_missing> will expand wildcards in this file (since debhelper 11.1).
+Wildcards without matches will be ignored.
 
 =back
 
@@ -58,6 +59,8 @@ Warn on stderr about source files not installed to somewhere.
 
 Note that files that are excluded from being moved via the B<-X> option are not
 warned about.
+
+This is the default in compat 12 and later.
 
 =item B<--fail-missing>
 
@@ -79,6 +82,9 @@ my (@installed, %helpers);
 my $srcdir = '.';
 $srcdir = $dh{SOURCEDIR} if defined $dh{SOURCEDIR};
 
+# --list-missing is the default in compat 12+
+$dh{LIST_MISSING} = 1 if !$dh{FAIL_MISSING} && !compat(11);
+
 if (!$dh{LIST_MISSING} && !$dh{FAIL_MISSING}) {
 	exit 0;
 }
@@ -89,13 +95,17 @@ if ($srcdir eq '.') {
 }
 
 if (! -d $srcdir) {
-	if (scalar(getpackages()) == 1 && not defined($dh{SOURCEDIR})) {
+	# If there was no explicit source directory, then we do not care
+	# if it is missing.
+	exit(0) if not defined $dh{SOURCEDIR};
+
+	if (scalar(getpackages()) == 1 && defined($dh{SOURCEDIR})) {
 		warning("$srcdir does not exist and there is only binary package.");
 		warning("Assuming everything is installed directly into the package directory.");
 		exit(0);
 	}
 	if (compat(10)) {
-		# Prevent "dh $@ --list-missing --destdir=..." from failing in compat 10.
+		# Prevent "dh $@ --list-missing --destdir=... ..." from failing in compat 10.
 		warning("Cannot check if installation is missing files: $srcdir does not exist");
 		exit(0);
 	} else {
@@ -103,7 +113,7 @@ if (! -d $srcdir) {
 	}
 }
 
-for my $file (<debian/.debhelper/generated/*/installed-by-*>) {
+for my $file (glob('debian/.debhelper/generated/*/installed-by-*')) {
 	my ($target_pkg, $helper) = ('unknown', 'unknown');
 	my $had_files = 0;
 	my %seen;
@@ -126,10 +136,21 @@ for my $file (<debian/.debhelper/generated/*/installed-by-*>) {
 my @missing;
 if ( -f 'debian/not-installed') {
 	my @not_installed = filearray('debian/not-installed');
-	foreach (@not_installed) {
-		s:^\s*:debian/tmp/: unless m:^\s*debian/tmp/:;
+	for my $pattern (@not_installed) {
+		my @matches;
+		# Add an explicit d/tmp if absent as there is no point in
+		# looking outside the debian staging directory
+		$pattern =~ s:^\s*:debian/tmp/: unless $pattern =~ m:^\s*debian/tmp/:;
+		@matches = glob_expand(['.'], \&glob_expand_error_handler_silently_ignore, $pattern);
+		if (@matches) {
+			# Assume classify them as installed
+			push(@installed, @matches);
+		} else {
+			# Assume it is not a pattern and classify it as installed
+			push(@installed, $pattern);
+		}
 	}
-	# Pretend that these are also installed.
+
 	push(@installed, @not_installed);
 }
 my $installed=join("|", map {
@@ -140,7 +161,14 @@ my $installed=join("|", map {
 	"\Q$_\E\/.*|\Q$_\E";
 } @installed);
 $installed=qr{^($installed)$};
-find(sub {
+
+# Lazy load File::Find
+require File::Find;
+
+File::Find::find(sub {
+	# Lazy loading of File::Find makes perl think that File::Find::dir is only used once
+	# and we might have typo'ed something
+	no warnings qw(once);
 	-f || -l || return;
 	$_="$File::Find::dir/$_";
 	if (! /$installed/ && ! excludefile($_)) {
@@ -162,6 +190,9 @@ if (@missing) {
 		nonquiet_print(" * ${helper}: " . join(', ', @results));
 	}
 	nonquiet_print("If the missing files are installed by another tool, please file a bug against it.");
+	nonquiet_print('When filing the report, if the tool is not part of debhelper itself, please reference the');
+	nonquiet_print('"Logging helpers and dh_missing" section from the "PROGRAMMING" guide for debhelper (10.6.3+).');
+	nonquiet_print('  (in the debhelper package: /usr/share/doc/debhelper/PROGRAMMING.gz)');
 	nonquiet_print("Be sure to test with dpkg-buildpackage -A/-B as the results may vary when only a subset is built");
 	nonquiet_print("For a short-term work-around: Add the files to debian/not-installed");
 	if ($dh{FAIL_MISSING}) {
@@ -180,9 +211,3 @@ This program is a part of debhelper.
 Michael Stapelberg <stapelberg@debian.org>
 
 =cut
-
-# Local Variables:
-# indent-tabs-mode: t
-# tab-width: 4
-# cperl-indent-level: 4
-# End:

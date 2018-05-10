@@ -20,7 +20,7 @@ are run, so the important stuff is clearly visible.
 
 An exception to above rule are dh_auto_* commands and dh itself. They will
 also print the commands interacting with the upstream build system and which
-of the simple debhelper programms are called. (i.e. print what a traditional
+of the simple debhelper programs are called. (i.e. print what a traditional
 non-dh(1) using debian/rules would print but nothing else).
 
 Debhelper programs should accept all options listed in the "SHARED
@@ -62,11 +62,14 @@ with the rest of debhelper if it does, so this is highly encouraged.
 
 Use Dh_Lib like this:
 
-use Debian::Debhelper::Dh_Lib
+use Debian::Debhelper::Dh_Lib;
+our $VERSION = '1.0';
 init();
 
-The init() function causes Dh_lib to parse the command line and do some other
-initialization tasks.
+The init() function causes Dh_lib to parse the command line and do
+some other initialization tasks.  If present, $main::VERSION will be
+used to determine the version of the tool (e.g. embedded into
+autoscript snippets).
 
 Argument processing:
 -------------------
@@ -152,13 +155,32 @@ Functions:
 
 Dh_Lib.pm also contains a number of functions you may find useful.
 
-doit(@command)
-	Pass this function an array that is a 
-	shell command. It will run the command (unless $dh{NO_ACT} is set), and
+doit([$options, ]@command)
+	Pass this function an array that is a command with arguments.
+	It will run the command (unless $dh{NO_ACT} is set), and
 	if $dh{VERBOSE} is set, it will also output the command to stdout. You
 	should use this function for almost all commands your program performs
 	that manipulate files in the package build directories.
-print_and_doit(@command)
+
+	The $options argument (if passed) must be a hashref (added in debhelper 10.7).
+	The following key-value pairs can be used:
+	  * stdout => A file name.  The child process will have its STDOUT redirected
+	    to that file.  [debhelper (>= 10.7)]
+	  * chdir => A directory.  The child process will do a chdir into that
+	    directory before executing the command.  [debhelper (>= 10.9)]
+	  * update_env => A hashref.  Each key in it represents an environment variable
+	    that should be set in the child (possibly replacing the existing value)
+	    prior to the exec.  If the value is undef, the environment variable will
+	    be unset.  Environment variables in %ENV but not listed in the update_env
+	    hashref will be preserved as-is.  [debhelper (>= 11.1)]
+
+	This will *not* invoke a shell, so meta characters will not have any special
+	meaning.  Use complex_doit for that (or emulate via "bash -c").
+	NB: In compat 11 and below, there was a bug that would make doit fork a shell
+	in one special case.  This is deprecated and will be removed in compat 12.
+	The detection code for this can be disabled by passing an empty hashref for
+	as $options.  This will make doit unconditionally avoid forking a shell.
+print_and_doit([$options, ]@command)
         Like doit but will print unless $dh{QUIET} is set. See "Standardization"
         above for when this is allowed to be called.
 complex_doit($command)
@@ -207,7 +229,12 @@ pkgfile($package, $basename)
 	skip running it. This is done by inserting a special comment,
 	of the form:
 
-	# PROMISE: DH NOOP WITHOUT pkgfilea pkgfileb tmp(need/this)
+	# PROMISE: DH NOOP WITHOUT pkgfilea pkgfile-logged(pkgfileb) tmp(need/this)
+
+	The "pkgfile-logged" hint notifies dh that the helper logs these files
+	via "log_intalled_files".  This means dh will sometimes need to run it
+	even when it is a NO OP because it has to log what it would have
+	installed to avoid dh_missing complaining about missing files.
 
 pkgext($package)
 	Pass this command the name of a binary package, and it will return
@@ -219,16 +246,18 @@ isnative($package)
 	is a native debian package.
 	As a side effect, $dh{VERSION} is set to the version number of the
 	package.
-autoscript($package, $scriptname, $snippetname, $sedcommands || $sub)
+autoscript($package, $scriptname, $snippetname, $substparam)
 	Pass parameters:
 	 - binary package to be affected
 	 - script to add to
 	 - filename of snippet
-	 - (optional) EITHER sed commands to run on the snippet. Ie,
-	   s/#PACKAGE#/$PACKAGE/ Note: Passed to the shell inside double
-           quotes.
-	   OR a perl sub to invoke with $_ set to each line of the snippet in
-           turn.
+	 - (optional) A substitution parameter, which is one of 3 times:
+	   * sed commands to run on the snippet. E.g. s/#PACKAGE#/$PACKAGE/
+	     Note: Passed to the shell inside double quotes.
+	   * a perl sub to invoke with $_ set to each line of the snippet
+	     in turn.
+	   * a hashref, where each key will substitute "#${key}#" with the
+	     value that $key points to.  [debhelper (>= 10.7)]
 	This command automatically adds shell script snippets to a debian
 	maintainer script (like the postinst or prerm).
 	Note that in v6 mode and up, the snippets are added in reverse
@@ -300,7 +329,7 @@ restore_file_on_clean($file)
 	CAVEAT: This *cannot* undo arbitrary "rm -fr"'ing.  The dir,
 	which is/was in $file, must be present when dh_clean is called.
 make_symlink($src, $dest, $tmp)
-	Creates a Policy compliant sytem link called $dest pointing to
+	Creates a Policy compliant system link called $dest pointing to
 	$src. If $tmp is given, then $tmp will be prefixed to $dest when
 	creating the actual symlink.
 install_dh_config_file($src, $dest[, $mode])
@@ -357,6 +386,38 @@ log_installed_files($package, @paths)
 	(e.g. avoid "foo/../bar" or "foo/./bar")
 	If a directory is listed, it and all paths recursively beneath is
 	also considered installed.
+on_pkgs_in_parallel($code) - prototype: (&)
+	Short hand for on_items_in_parallel with $dh{DOPACKAGES} as
+	as list of packages.
+on_items_in_parallel($item_list_ref, $code)
+	Splits all the items in $item_list_ref into a number of groups
+	based on the max parallel (as decided by DEB_BUILD_OPTIONS)
+	A subprocess is forked for each group (minimum 1 process will be
+	forked) and each subprocess will be given a group of items
+	to process.  Each group is passed to the $code sub, which will
+	then process it and return normally on success.
+	Example:
+		my @all_packages = getpackages();
+		on_items_in_parallel(\@all_packages, sub {
+			for my $package (@_) {
+				my $tmp=tmpdir($package);
+				my $pkgfile = pkgfile($package, 'foo');
+				...;
+			}
+		});
+		my @work_list = compute_work_list();
+		on_items_in_parallel(\@work_list, sub {
+			for my $item (@_) {
+				...;
+			}
+		});
+
+	If there is an error, which should stop the build, please invoke
+	either "error()" or "error_exitcode".  Alternatively, a trappable
+	error (e.g. "die($msg)") can also be used.
+
+	Keep in mind that the sub will always be run in a subprocess,
+	so it cannot update global state.
 
 Sequence Addons:
 ---------------
@@ -392,6 +453,63 @@ remove_command_options($command)
 remove_command_options($command, $opt1, $opt2, ...)
 	Remove $opt1, $opt2 etc. from the list of additional options which
 	dh passes when running the specified $command.
+
+Logging helpers and dh_missing:
+-------------------------------
+
+Since debhelper 10.3, debhelper has had a helper called "dh_missing".  It
+takes over the "--list-missing" and "--fail-missing" options from dh_install
+and as the advantage that it can "see" what other helpers have installed.
+
+Under the hood, this works by the helpers logging the source files
+they (would) install to a hidden log file.  When dh_missing is called,
+it reads all these log files to determine which files have would been
+installed and compare them to what is present.
+
+If you are writing a helper that need to integrate with dh_missing,
+here is what you do:
+
+Dh_Lib-based helpers:
+~~~~~~~~~~~~~~~~~~~~~
+
+ * Replace "@{$dh{DOPACKAGES}}" with "getpackages()" and use
+   "process_pkg($package)" to determine if the helper should actually
+   install anything.
+ * Call "log_installed_files" once per package (even once that are not to
+   be acted on) with a list of source files that would be installed.
+   - You can list entire directories even if there are files under
+     it that are ignored.
+   - Please call "log_installed_files" /even if/ the list is empty for that
+     packages.  This enables dh_missing to see that the helper has been run
+     and nothing should be installed for that package.
+ * If your helper has a PROMISE, it must use "pkgfile-logged(<file>)"
+   for its config files.  (See #867246)
+   - CAVEAT: This requires a dependency on "debhelper (>= 10.2.5)".  Prior
+     to that version, debhelper will wrongly optimize your helper out.
+ * Consider using dh_installman or dh_installexamples as examples.
+
+Other helpers:
+~~~~~~~~~~~~~~
+
+ * The helper must compile a list of files it would have installed for
+   each package (even packages that are not acted on).  The file list
+   should be relative to the source package root (e.g.
+   "debian/tmp/usr/bin/bar").
+    - This list can also contain directories.  They will be flagged as
+      installed along with their content (recursively).
+ * The helper must append to the file (create it if missing):
+     debian/.debhelper/generated/${package}/installed-by-${HELPER_NAME}
+   - Example: debian/.debhelper/generated/lintian/installed-by-dh_install
+   - The file should be created even if it is empty.  This enables dh_missing
+     to see that the helper has been run and nothing would be installed for
+     that package.
+ * Please append to the file if it exists as the helper may be called multiple
+   times (once with -a and once with -i).  It is completely fine if this leaves
+   duplicate entries as dh_missing will deduplicate these.
+ * If your helper has a PROMISE, it must use "pkgfile-logged(<file>)"
+   for its config files.  (See #867246)
+   - CAVEAT: This requires a dependency on "debhelper (>= 10.2.5)".  Prior
+     to that version, debhelper will wrongly optimize your helper out.
 
 Buildsystem Classes:
 -------------------

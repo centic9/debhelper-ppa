@@ -12,6 +12,8 @@ use Config;
 use File::Find;
 use Debian::Debhelper::Dh_Lib;
 
+our $VERSION = DH_BUILTIN_VERSION;
+
 =head1 SYNOPSIS
 
 B<dh_perl> [S<I<debhelper options>>] [B<-d>] [S<I<library dirs> ...>]
@@ -109,7 +111,10 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 	# find scripts
 	find sub {
 		return unless -f and (-x _ or /\.pl$/);
-		return if $File::Find::dir=~/\/usr\/share\/doc\//;
+		if ($File::Find::dir =~ m{/usr/share/doc/}) {
+			$File::Find::prune = 1 if -d _;
+			return;
+		}
 
 		return unless open(my $fd, '<', $_);
 		if (read($fd, local $_, 32) and m%^#!\s*(/usr/bin/perl|/usr/bin/env\s+perl)\s%) {
@@ -121,7 +126,7 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 	if ($deps) {
 		my $version="";
 		if ($deps & XS_MODULE or $dh{V_FLAG_SET}) {
-			($version) = `dpkg -s $perl` =~ /^Version:\s*(\S+)/m
+			($version) = qx_cmd('dpkg', '-s', $perl) =~ /^Version:\s*(\S+)/m
 				unless $version;
 			$version = ">= $version";
 		}
@@ -162,9 +167,3 @@ This program is a part of debhelper.
 Brendan O'Dea <bod@debian.org>
 
 =cut
-
-# Local Variables:
-# indent-tabs-mode: t
-# tab-width: 4
-# cperl-indent-level: 4
-# End:

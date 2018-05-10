@@ -9,6 +9,9 @@ dh - debhelper command sequencer
 use strict;
 use warnings;
 use Debian::Debhelper::Dh_Lib;
+use Debian::Debhelper::SequencerUtil;
+
+our $VERSION = DH_BUILTIN_VERSION;
 
 =head1 SYNOPSIS
 
@@ -62,7 +65,9 @@ listed, separated by commas.
 
 List all available addons.
 
-This can be used without a F<debian/compat> file.
+When called only with this option, B<dh> can be called from any
+directory (i.e. it does not need access to files from a source
+package).
 
 =item B<--no-act>
 
@@ -216,10 +221,16 @@ If you're curious about B<dh>'s internals, here's how it works under the hood.
 
 In compat 10 (or later), B<dh> creates a stamp file
 F<debian/debhelper-build-stamp> after the build step(s) are complete
-to avoid re-running them.  Inside an override target, B<dh_*> commands
-will create a log file F<debian/package.debhelper.log> to keep track
-of which packages the command(s) have been run for.  These log files
-are then removed once the override target is complete.
+to avoid re-running them.  It is possible to avoid the stamp file by
+passing B<--without=build-stamp> to B<dh>.  This makes "no clean"
+builds behave more like what some people expect at the expense of
+possibly running the build and test twice (the second time as root or
+under L<fakeroot(1)>).
+
+Inside an override target, B<dh_*> commands will create a log file
+F<debian/package.debhelper.log> to keep track of which packages the
+command(s) have been run for.  These log files are then removed once
+the override target is complete.
 
 In compat 9 or earlier, each debhelper command will record
 when it's successfully run in F<debian/package.debhelper.log>. (Which
@@ -287,12 +298,13 @@ if (not compat(9, 1)) {
 	# sequence add-on so existing --without=autoreconf
 	unshift(@ARGV, "--with=autoreconf");
 	# Enable systemd support by default in compat 10 or later.
-	unshift(@ARGV, "--with=systemd");
-}
-if (compat(10, 1)) {
+	# - compat 11 injects the dh_installsystemd tool directly in the
+	#   sequence instead of using a --with sequence.
+	unshift(@ARGV, "--with=systemd") if compat(10, 1);
 	unshift(@ARGV, "--with=build-stamp");
 }
 
+push(@{$dh{WITH}},split(",", $ENV{DH_EXTRA_ADDONS})) if $ENV{DH_EXTRA_ADDONS};
 
 inhibit_log();
 		
@@ -353,10 +365,9 @@ if (! defined $sequence) {
 # Also support completely empty override targets.
 # Note: it's not safe to use rules_explicit_target before this check,
 # since it causes dh to be run.
-my $dummy_target="debhelper-fail-me";
 if ($sequence eq 'debian/rules' ||
     $sequence =~ /^override_dh_/ ||
-    $sequence eq $dummy_target) {
+    $sequence eq DUMMY_TARGET) {
 	exit 0;
 }
 
@@ -367,8 +378,7 @@ my %sequences;
 my @bd_minimal = qw{
 	dh_testdir
 };
-my @bd = (qw{
-	dh_testdir
+my @bd = (@bd_minimal, qw{
 	dh_update_autotools_config
 	dh_auto_configure
 	dh_auto_build
@@ -393,6 +403,10 @@ my @i = (qw{
 	dh_installifupdown
 	dh_installinfo
 	dh_installinit
+},
+   (!compat(10) ? qw(dh_installsystemd) : qw()),
+
+qw{
 	dh_installmenu
 	dh_installmime
 	dh_installmodules
@@ -432,32 +446,19 @@ my @b=qw{
 	dh_md5sums
 	dh_builddeb
 };
-$sequences{clean} = [qw{
-	dh_testdir
+$sequences{clean} = [@bd_minimal, qw{
 	dh_auto_clean
 	dh_clean
 }];
 $sequences{'build-indep'} = [@bd];
 $sequences{'build-arch'} = [@bd];
-if (! compat(8)) {
-	# From v9, sequences take standard rules targets into account.
-	$sequences{build} = [@bd_minimal, rules("build-arch"), rules("build-indep")];
-	$sequences{'install-indep'} = [rules("build-indep"), @i];
-	$sequences{'install-arch'} = [rules("build-arch"), @i];
-	$sequences{'install'} = [rules("build"), rules("install-arch"), rules("install-indep")];
-	$sequences{'binary-indep'} = [rules("install-indep"), @b];
-	$sequences{'binary-arch'} = [rules("install-arch"), @ba, @b];
-	$sequences{binary} = [rules("install"), rules("binary-arch"), rules("binary-indep")];
-}
-else {
-	$sequences{build} = [@bd];
-	$sequences{'install'} = [@{$sequences{build}}, @i];
-	$sequences{'install-indep'} = [@{$sequences{'build-indep'}}, @i];
-	$sequences{'install-arch'} = [@{$sequences{'build-arch'}}, @i];
-	$sequences{binary} = [@{$sequences{install}}, @ba, @b];
-	$sequences{'binary-indep'} = [@{$sequences{'install-indep'}}, @b];
-	$sequences{'binary-arch'} = [@{$sequences{'install-arch'}}, @ba, @b];
-}
+$sequences{build} = [to_rules_target("build-arch"), to_rules_target("build-indep")];
+$sequences{'install-indep'} = [to_rules_target("build-indep"), @i];
+$sequences{'install-arch'} = [to_rules_target("build-arch"), @i];
+$sequences{'install'} = [to_rules_target("build"), to_rules_target("install-arch"), to_rules_target("install-indep")];
+$sequences{'binary-indep'} = [to_rules_target("install-indep"), @b];
+$sequences{'binary-arch'} = [to_rules_target("install-arch"), @ba, @b];
+$sequences{binary} = [to_rules_target("install"), to_rules_target("binary-arch"), to_rules_target("binary-indep")];
 
 # Additional command options
 my %command_opts;
@@ -528,7 +529,7 @@ sub list_addons {
 	my %addons;
 
 	for my $inc (@INC) {
-		eval q{use File::Spec};
+		require File::Spec;
 		my $path = File::Spec->catdir($inc, "Debian/Debhelper/Sequence");
 		if (-d $path) {
 			for my $module_path (glob "$path/*.pm") {
@@ -561,31 +562,47 @@ if (! exists $sequences{$sequence}) {
 	error "Unknown sequence $sequence (choose from: ".
 		join(" ", sort keys %sequences).")";
 }
-my @sequence=optimize_sequence(@{$sequences{$sequence}});
 
 # The list of all packages that can be acted on.
 my @packages=@{$dh{DOPACKAGES}};
+my @arch_packages = getpackages("arch");
+my @indep_packages = getpackages("indep");
+my %sequence2packages = (
+	'build-arch'   => \@arch_packages,
+	'install-arch' => \@arch_packages,
+	'binary-arch'  => \@arch_packages,
+
+	'build-indep'   => \@indep_packages,
+	'install-indep' => \@indep_packages,
+	'binary-indep'  => \@indep_packages,
+
+	'clean'   => \@packages,
+	'build'   => \@packages,
+	'install' => \@packages,
+	'binary'  => \@packages,
+);
+
+my %completed_sequences;
 
 # Get the options to pass to commands in the sequence.
 # Filter out options intended only for this program.
 my @options;
 my $user_specified_options=0;
+my $build_system_options = 0;
 if ($sequence eq 'build-arch' ||
     $sequence eq 'install-arch' ||
     $sequence eq 'binary-arch') {
 	push @options, "-a";
 	# as an optimisation, remove from the list any packages
 	# that are not arch dependent
-	my %arch_packages = map { $_ => 1 } getpackages("arch");
-	@packages = grep { $arch_packages{$_} } @packages;
+	@packages = @{$sequence2packages{$sequence}};
 }
 elsif ($sequence eq 'build-indep' ||
        $sequence eq 'install-indep' ||
        $sequence eq 'binary-indep') {
 	push @options, "-i";
 	# ditto optimisation for arch indep
-	my %indep_packages = map { $_ => 1 } getpackages("indep");
-	@packages = grep { $indep_packages{$_} } @packages;
+	@packages = @{$sequence2packages{$sequence}};
 }
 while (@ARGV_orig) {
 	my $opt=shift @ARGV_orig;
@@ -611,6 +628,7 @@ while (@ARGV_orig) {
 			next if $max_parallel == 1;
 		}
 		push @options, "-O".$opt;
+		$build_system_options = 1 if $opt ne '--no-parallel' and $opt ne '--parallel';
 		$user_specified_options=1
 			unless $opt =~ /^--((?:no-)?parallel|buildsystem|sourcedirectory|builddirectory|)/;
 	}
@@ -629,63 +647,115 @@ while (@ARGV_orig) {
 }
 
 # Figure out at what point in the sequence to start for each package.
-my %logged;
-my %startpoint;
-my %stamp_file;
+my (%logged, %startpoint, %stamp_file);
 
-if ( -f $build_stamp_file) {
+if ( -f $build_stamp_file and not compat(9)) {
 	open(my $fd, '<', $build_stamp_file) or error("open($build_stamp_file, ro) failed: $!");
 	while (my $line = <$fd>) {
 		chomp($line);
 		$stamp_file{$line} = 1;
 	}
 	close($fd);
+	my $build_indep_target_done = 1;
+	my $build_arch_target_done = 1;
+	for my $pkg (@{$sequence2packages{'build-arch'}}) {
+		if (not $stamp_file{$pkg}) {
+			$build_arch_target_done = 0;
+			last;
+		}
+	}
+	for my $pkg (@{$sequence2packages{'build-indep'}}) {
+		if (not $stamp_file{$pkg}) {
+			$build_indep_target_done = 0;
+			last;
+		}
+	}
+	$completed_sequences{'build-arch'} = 1 if $build_arch_target_done;
+	$completed_sequences{'build-indep'} = 1 if $build_indep_target_done;
+	$completed_sequences{'build'} = 1 if $build_indep_target_done and $build_arch_target_done;
 }
 
-# Lazy cache of the result of optimize_sequence on the "build"
-# sequence
-my $optimized_build_seq;
-foreach my $package (@packages) {
-	my @log;
-	if (compat(9)) {
-		@log = load_log($package, \%logged);
-	} elsif (exists($stamp_file{$package})) {
-		if (not defined($optimized_build_seq)) {
-			# Expand "build" so we can accurately filter out
-			# everything (admittedly, it is bit of an over
-			# approximation)
-			# Related bug: #851071
-			my @seq = optimize_sequence(@{$sequences{'build'}});
-			$optimized_build_seq = \@seq;
+# In compat <= 8, the sequences are always inlined (those versions do not
+# recurse into debian/rules anyway).  In compat 9+, we never inline an
+# existing rules target.
+my ($rules_targets, $full_sequence) = unpack_sequence(\%sequences,
+														$sequence,
+														(!compat(8) ? 0 : 1),
+														\%completed_sequences
+														);
+my $stoppoint = $#{$full_sequence};
+
+if (compat(9)) {
+	foreach my $package (@packages) {
+		my @log = load_log($package, \%logged);
+		if ($dh{AFTER}) {
+			# Run commands in the sequence that come after the
+			# specified command.
+			$startpoint{$package} = command_pos($dh{AFTER}, @{$full_sequence}) + 1;
+			# Write a dummy log entry indicating that the specified
+			# command was, in fact, run. This handles the case where
+			# no commands remain to run after it, communicating to
+			# future dh instances that the specified command should not
+			# be run again.
+			write_log($full_sequence->[$startpoint{$package} - 1], $package);
 		}
-		@log = @{$optimized_build_seq};
-		# We do not need %logged in compat 10
+		elsif ($dh{REMAINING}) {
+			# Start at the beginning so all remaining commands will get
+			# run.
+			$startpoint{$package} = 0;
+		}
+		else {
+			# Find the last logged command that is in the sequence, and
+			# continue with the next command after it. If no logged
+			# command is in the sequence, we're starting at the beginning..
+			$startpoint{$package} = 0;
+			COMMAND:
+			foreach my $command (reverse @log) {
+				foreach my $i (0 .. $#{$full_sequence}) {
+					if ($command eq $full_sequence->[$i]) {
+						$startpoint{$package} = $i + 1;
+						last COMMAND;
+					}
+				}
+			}
+		}
 	}
-	if ($dh{AFTER}) {
-		# Run commands in the sequence that come after the
-		# specified command.
-		$startpoint{$package}=command_pos($dh{AFTER}, @sequence) + 1;
-		# Write a dummy log entry indicating that the specified
-		# command was, in fact, run. This handles the case where
-		# no commands remain to run after it, communicating to
-		# future dh instances that the specified command should not
-		# be run again.
-		write_log($sequence[$startpoint{$package}-1], $package);
+	# Figure out what point in the sequence to go to.
+	if ($dh{UNTIL}) {
+		$stoppoint = command_pos($dh{UNTIL}, @{$full_sequence});
+	} elsif ($dh{BEFORE}) {
+		$stoppoint = command_pos($dh{BEFORE}, @{$full_sequence}) - 1;
 	}
-	elsif ($dh{REMAINING}) {
-		# Start at the beginning so all remaining commands will get
-		# run.
-		$startpoint{$package}=0;
+} else {
+	foreach my $package (@packages) {
+		$startpoint{$package} = 0;
 	}
-	else {
-		# Find the last logged command that is in the sequence, and
-		# continue with the next command after it. If no logged
-		# command is in the sequence, we're starting at the beginning.. 			
-		$startpoint{$package}=0;
-COMMAND:	foreach my $command (reverse @log) {
-			foreach my $i (0..$#sequence) {
-				if ($command eq $sequence[$i]) {
-					$startpoint{$package}=$i+1;
+}
+
+for my $rules_command (@{$rules_targets}) {
+	my $rules_target = extract_rules_target_name($rules_command)
+		// error("Internal error: $rules_command was not a rules target!?");
+	# Don't pass DH_ environment variables, since this is
+	# a fresh invocation of debian/rules and any sub-dh commands.
+	delete($ENV{DH_INTERNAL_OPTIONS});
+	delete($ENV{DH_INTERNAL_OVERRIDE});
+	run("debian/rules", $rules_target);
+	my $override_packages = $sequence2packages{$rules_target} // \@packages;
+	for my $package (@{$override_packages}) {
+		my (undef, $seq) = unpack_sequence(\%sequences, $rules_target, 1);
+		COMMAND: for my $c (reverse(@{$seq})) {
+			for my $j (0 .. $#{$full_sequence}) {
+				if ($c eq $full_sequence->[$j]) {
+					# Unfortunately, we do not guarantee any order
+					# between the run targets.  Assuming e.g.
+					# "install-arch" and "build" are opague targets
+					# then we could process "install-arch" first and
+					# then "build".  In this case, it is important
+					# that we do not "reset" the starting point for
+					# "arch" packages.  Otherwise, we might repeat
+					# part of the "install-arch" sequence when we
+					# should not.
+					$startpoint{$package} = $j + 1 if $j + 1 > $startpoint{$package};
 					last COMMAND;
 				}
 			}
@@ -693,25 +763,16 @@ COMMAND:	foreach my $command (reverse @log) {
 	}
 }
 
-# Figure out what point in the sequence to go to.
-my $stoppoint=$#sequence;
-if ($dh{UNTIL}) {
-	$stoppoint=command_pos($dh{UNTIL}, @sequence);
-}
-elsif ($dh{BEFORE}) {
-	$stoppoint=command_pos($dh{BEFORE}, @sequence) - 1;
-}
-
 # Now run the commands in the sequence.
 foreach my $i (0..$stoppoint) {
-	my $command=$sequence[$i];
+	my $command = $full_sequence->[$i];
 
 	# Figure out which packages need to run this command.
 	my @todo;
 	my @opts=@options;
 	foreach my $package (@packages) {
 		if ($startpoint{$package} > $i ||
-		    $logged{$package}{$sequence[$i]}) {
+		    $logged{$package}{$full_sequence->[$i]}) {
 			push @opts, "-N$package";
 		}
 		else {
@@ -720,15 +781,9 @@ foreach my $i (0..$stoppoint) {
 	}
 	next unless @todo;
 
-	my $rules_target = rules_target($command);
-	if (defined $rules_target) {
-		# Don't pass DH_ environment variables, since this is
-		# a fresh invocation of debian/rules and any sub-dh commands.
-		delete $ENV{DH_INTERNAL_OPTIONS};
-		delete $ENV{DH_INTERNAL_OVERRIDE};
-		run("debian/rules", $rules_target);
-		next;
-	}
+	my $rules_target = extract_rules_target_name($command);
+	error("Internal error: $command is a rules target, but it is not supported to be!?") if defined($rules_target);
+
 	if (my $stamp_file = stamp_target($command)) {
 		my %seen;
 		print "   create-stamp ".escape_shell($stamp_file)."\n";
@@ -799,8 +854,8 @@ sub run {
 	}
 
 	return if $dh{NO_ACT};
-			
-	my $ret=system($command, @options);
+
+	my $ret=system { $command } $command, @options;
 	if ($ret >> 8 != 0) {
 		exit $ret >> 8;
 	}
@@ -820,14 +875,15 @@ sub run_override {
 	# Check which packages are of the right architecture for the
 	# override_type.
 	my (@todo, @rest);
+	my $has_explicit_target = rules_explicit_target($override);
+
 	if (defined $override_type) {
 		foreach my $package (@{$packages}) {
-			my $isall=package_arch($package) eq 'all';
+			my $isall=package_is_arch_all($package);
 			if (($override_type eq 'indep' && $isall) ||
-			    ($override_type eq 'arch' && !$isall)) {
+				($override_type eq 'arch' && !$isall)) {
 				push @todo, $package;
-			}
-			else {
+			} else {
 				push @rest, $package;
 				push @options, "-N$package";
 			}
@@ -837,7 +893,6 @@ sub run_override {
 		@todo=@{$packages};
 	}
 
-	my $has_explicit_target = rules_explicit_target($override);
 	return @{$packages} unless defined $has_explicit_target; # no such override
 	return @rest if ! $has_explicit_target; # has empty override
 	return @rest unless @todo; # has override, but no packages to act on
@@ -851,7 +906,10 @@ sub run_override {
 
 	# Discard any override log files before calling the override
 	# target
-	complex_doit("rm","-f","debian/*.debhelper.log") if not compat(9);
+	if (not compat(9)) {
+		my @files = glob('debian/*.debhelper.log');
+		rm_files(@files) if @files;
+	}
 	# This passes the options through to commands called
 	# inside the target.
 	$ENV{DH_INTERNAL_OPTIONS}=join("\x1e", @options);
@@ -877,42 +935,6 @@ sub run_override {
 	return @rest;
 }
 
-sub optimize_sequence {
-	my (@commands) = @_;
-	my (@sequence, %seen);
-	my $add=sub {
-		# commands can appear multiple times when sequences are
-		# inlined together; only the first should be needed
-		my $command=shift;
-		if (! $seen{$command}) {
-			$seen{$command}=1;
-			push @sequence, $command;
-		}
-	};
-	foreach my $command (@commands) {
-		my $rules_target=rules_target($command);
-		if (defined $rules_target &&
-		    ! defined rules_explicit_target($rules_target)) {
-			# inline the sequence for this implicit target
-			$add->($_) foreach optimize_sequence(@{$sequences{$rules_target}});
-		}
-		else {
-			$add->($command);
-		}
-	}
-	return @sequence;
-}
-
-sub rules_target {
-	my ($command) = @_;
-	if ($command =~ /^debian\/rules\s+(.*)/) {
-		return $1
-	}
-	else {
-		return undef;
-	}
-}
-
 sub stamp_target {
 	my ($command) = @_;
 	if ($command =~ s/^create-stamp\s+//) {
@@ -921,71 +943,6 @@ sub stamp_target {
 	return;
 }
 
-sub rules {
-	return "debian/rules ".join(" ", @_);
-}
-
-{
-my %targets;
-my $rules_parsed;
-
-sub rules_explicit_target {
-	# Checks if a specified target exists as an explicit target
-	# in debian/rules.
-	# undef is returned if target does not exist, 0 if target is noop
-	# and 1 if target has dependencies or executes commands.
-	my ($target) = @_;
-
-	if (! $rules_parsed) {
-		my $processing_targets = 0;
-		my $not_a_target = 0;
-		my $current_target;
-		open(MAKE, "LC_ALL=C make -Rrnpsf debian/rules $dummy_target 2>/dev/null |");
-		while (<MAKE>) {
-			if ($processing_targets) {
-				if (/^# Not a target:/) {
-					$not_a_target = 1;
-				}
-				else {
-					if (!$not_a_target && /^([^#:]+)::?\s*(.*)$/) {
-						# Target is defined. NOTE: if it is a dependency of
-						# .PHONY it will be defined too but that's ok.
-						# $2 contains target dependencies if any.
-						$current_target = $1;
-						$targets{$current_target} = ($2) ? 1 : 0;
-					}
-					else {
-						if (defined $current_target) {
-							if (/^#/) {
-								# Check if target has commands to execute
-								if (/^#\s*(commands|recipe) to execute/) {
-									$targets{$current_target} = 1;
-								}
-							}
-							else {
-								# Target parsed.
-								$current_target = undef;
-							}
-						}
-					}
-					# "Not a target:" is always followed by
-					# a target name, so resetting this one
-					# here is safe.
-					$not_a_target = 0;
-				}
-			}
-			elsif (/^# Files$/) {
-				$processing_targets = 1;
-			}
-		}
-		close MAKE;
-		$rules_parsed = 1;
-	}
-
-	return $targets{$target};
-}
-
-}
 
 sub warn_deprecated {
 	foreach my $deprecated ('until', 'after', 'before', 'remaining') {
@@ -1029,11 +986,16 @@ sub can_skip {
 	return 0 if $user_specified_options ||
 		(exists $ENV{DH_OPTIONS} && length $ENV{DH_OPTIONS});
 
+	return 0 if exists($command_opts{$command})
+		and @{$command_opts{$command}};
+
 	if (! defined $skipinfo{$command}) {
 		$skipinfo{$command}=[extract_skipinfo($command)];
 	}
 	my @skipinfo=@{$skipinfo{$command}};
 	return 0 unless @skipinfo;
+	return 1 if scalar(@skipinfo) == 1 and $skipinfo[0] eq 'always-skip';
+	my $all_pkgs;
 
 	foreach my $skipinfo (@skipinfo) {
 		if ($skipinfo=~/^([a-zA-Z0-9-_]+)\((.*)\)$/) {
@@ -1044,6 +1006,23 @@ sub can_skip {
 					my $tmp = tmpdir($package);
 					return 0 if -e "$tmp/$need";
 				}
+			} elsif ($type eq 'pkgfile' or $type eq 'pkgfile-logged') {
+				my $pkgs;
+				if ($type eq 'pkgfile') {
+					$pkgs = \@packages;
+				} else {
+					$all_pkgs //= [getpackages()];
+					$pkgs = $all_pkgs;
+				}
+				# Use the secret bulk check call
+				return 0 if pkgfile($pkgs, $need) ne '';
+			} elsif ($type eq 'buildsystem') {
+				# If there are any buildsystem options, we assume that
+				# the build needs a buildsystem.
+				return 0 if $build_system_options;
+				require Debian::Debhelper::Dh_Buildsystems;
+				my $system = Debian::Debhelper::Dh_Buildsystems::load_buildsystem(undef, $need);
+				return 0 if defined($system);
 			} else {
 				# Unknown hint - make no assumptions
 				return 0;
@@ -1056,22 +1035,6 @@ sub can_skip {
 	return 1;
 }
 
-sub extract_skipinfo {
-	my ($command) = @_;
-
-	foreach my $dir (split (':', $ENV{PATH})) {
-		if (open (my $h, "<", "$dir/$command")) {
-			while (<$h>) {
-				if (m/PROMISE: DH NOOP WITHOUT\s+(.*)/) {
-					close $h;
-					return split(' ', $1);
-				}
-			}
-			close $h;
-			return ();
-		}
-	}
-}
 
 =head1 SEE ALSO
 
@@ -1084,9 +1047,3 @@ This program is a part of debhelper.
 Joey Hess <joeyh@debian.org>
 
 =cut
-
-# Local Variables:
-# indent-tabs-mode: t
-# tab-width: 4
-# cperl-indent-level: 4
-# End:

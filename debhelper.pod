@@ -1,3 +1,5 @@
+=encoding UTF-8
+
 =head1 NAME
 
 debhelper - the debhelper tool suite
@@ -25,6 +27,11 @@ the sample rules files and edit it by hand. Or you can try the B<dh-make>
 package, which contains a L<dh_make|dh_make(1)> command that partially
 automates the process. For a more gentle introduction, the B<maint-guide> Debian 
 package contains a tutorial about making your first package using debhelper.
+
+Except where tool explicitly denotes otherwise, all of the debhelper
+tools assumes that they run from root directory of an unpacked source
+package.  This is so they can locate find F<debian/control> and
+F<debian/compat> when needed.
 
 =head1 DEBHELPER COMMANDS
 
@@ -125,6 +132,8 @@ times to make debhelper operate on a given set of packages.
 =item B<-s>, B<--same-arch>
 
 Deprecated alias of B<-a>.
+
+This option is removed in compat 12.
 
 =item B<-N>I<package>, B<--no-package=>I<package>
 
@@ -243,7 +252,7 @@ If neither option is specified, debhelper currently defaults to
 B<--parallel> in compat 10 (or later) and B<--no-parallel> otherwise.
 
 As an optimization, B<dh> will try to avoid passing these options to
-subprocesses, if they are unncessary and the only options passed.
+subprocesses, if they are unnecessary and the only options passed.
 Notably this happens when B<DEB_BUILD_OPTIONS> does not have a
 I<parallel> parameter (or its value is 1).
 
@@ -277,15 +286,15 @@ it modifies its behavior in various ways.  The compatibility level is
 specified in the F<debian/compat> file and the file must be present.
 
 Tell debhelper what compatibility level to use by writing a number to
-F<debian/compat>. For example, to use v9 mode:
+F<debian/compat>. For example, to use v#RECOMMENDED_COMPAT# mode:
 
-  % echo 9 > debian/compat
+  % echo #RECOMMENDED_COMPAT# > debian/compat
 
 Your package will also need a versioned build dependency on a version of
 debhelper equal to (or greater than) the compatibility level your package
-uses. So for compatibility level 9, ensure debian/control has:
+uses. So for compatibility level #RECOMMENDED_COMPAT#, ensure debian/control has:
 
-  Build-Depends: debhelper (>= 9)
+  Build-Depends: debhelper (>= #RECOMMENDED_COMPAT#)
 
 Unless otherwise indicated, all debhelper documentation assumes that you
 are using the most recent compatibility level, and in most cases does not
@@ -293,6 +302,8 @@ indicate if the behavior is different in an earlier compatibility level, so
 if you are not using the most recent compatibility level, you're advised to
 read below for notes about what is different in earlier compatibility
 levels.
+
+=head2 Supported compatibility levels
 
 These are the available compatibility levels:
 
@@ -461,9 +472,6 @@ configuration.
 
 =item v10
 
-This is the recommended mode of operation.
-
-
 Changes from v9 are:
 
 =over 8
@@ -577,7 +585,7 @@ package.
 
 =item v11
 
-This compatibility level is still open for development; use with caution.
+This is the recommended mode of operation.
 
 Changes from v10 are:
 
@@ -585,14 +593,134 @@ Changes from v10 are:
 
 =item -
 
-B<dh_installmenu> no longer installs F<menu> files.  The
-F<menu-method> files are still installed.
+B<dh_installinit> no longer installs F<service> or F<tmpfile> files,
+nor generates maintainer scripts for those files.  Please use the new
+B<dh_installsystemd> helper.
 
 =item -
 
-B<dh_installinit> no longer installs F<service> or F<tmpfile> files, nor
-generates maintainer scripts for those files. Use B<dh_systemd_enable> and
-B<dh_systemd_start> instead.
+The B<dh_systemd_enable> and B<dh_systemd_start> helpers have been
+replaced by the new B<dh_installsystemd> helper.  For the same reason,
+the B<systemd> sequence for B<dh> has also been removed.  If you need
+to disable the B<dh_installsystemd> helper tool, please use an empty
+override target.
+
+Please note that the B<dh_installsystemd> tool has a slightly
+different behaviour in some cases (e.g. when using the B<--name>
+parameter).
+
+=item -
+
+B<dh_installdirs> no longer creates debian/I<package> directories
+unless explicitly requested (or it has to create a subdirectory in
+it).
+
+The vast majority of all packages will be unaffected by this change.
+
+=item -
+
+The B<makefile> buildsystem now passes B<INSTALL=install
+--strip-program=true> to L<make(1)>.  Derivative buildsystems
+(e.g. B<configure> or B<cmake>) are unaffected by this change.
+
+=item -
+
+The B<autoconf> buildsystem now passes B<--runstatedir=/run> to
+F<./configure>.
+
+=item -
+
+The B<cmake> buildsystem now passes
+B<-DCMAKE_INSTALL_RUNSTATEDIR=/run> to L<cmake(1)>.
+
+=item -
+
+B<dh_installman> will now prefer detecting the language from the
+path name rather than the extension.
+
+=item -
+
+B<dh_auto_install> will now only create the destination
+directory it needs.  Previously, it would create the package build
+directory for all packages.  This will not affect packages that only
+build with debhelper commands, but it may expose bugs in commands not
+included in debhelper.
+
+=item -
+
+The helpers B<dh_installdocs>, B<dh_installexamples>, B<dh_installinfo>,
+and B<dh_installman> now error out if their config has a pattern that
+does not match anything or reference a path that does not exist.
+
+Known exceptions include building with the B<nodoc> profile, where the
+above tools will silently permit failed matches where the patterns
+are used to specify documentation.
+
+=item -
+
+The helpers B<dh_installdocs>, B<dh_installexamples>, B<dh_installinfo>,
+and B<dh_installman> now accept the parameter B<--sourcedir> with same
+meaning as B<dh_install>. Furthermore, they now also fall back to
+F<debian/tmp> like B<dh_install>.
+
+Migration note: A bug in debhelper 11 up to 11.1.5 made
+B<dh_installinfo> incorrectly ignore B<--sourcedir>.
+
+=item -
+
+The B<perl-makemaker> and B<perl-build> build systems no longer pass
+B<-I.> to perl.  Packages that still need this behaviour can emulate
+it by using the B<PERL5LIB> environment variable.  E.g. by adding
+B<export PERL5LIB=.> in their debian/rules file (or similar).
+
+=item -
+
+The B<PERL_USE_UNSAFE_INC> environment variable is no longer set by
+B<dh> or any of the B<dh_auto_*> tools.  It was added as a temporary
+work around to avoid a lot of packages failing to build at the same
+time.
+
+Note this item will eventually become obsolete as upstream intends
+to drop support for the B<PERL_USE_UNSAFE_INC> environment variable.
+When perl drops support for it, then this variable will be removed
+retroactively from existing compat levels as well.
+
+=item -
+
+The B<dh_makeshlibs> helper will now exit with an error if objdump
+returns a non-zero exit from analysing a given file.
+
+=item -
+
+The B<dh_installdocs> and B<dh_installexamples> tools will now attempt
+to guess the "main package" for a given documentation package
+(e.g. I<pkg-doc> will have I<pkg> as main package if the latter
+exists).  If a main package is found, I<most> of the documentation
+will be installed into F<< /usr/share/doc/I<main-pkg> >> by default as
+recommended by Debian policy §12.3 since version 3.9.7.  Notable
+exceptions include the copyright file and changelog files.
+
+The B<--doc-main-package> option can be used when the auto-detection
+is insufficient.
+
+=item -
+
+The B<dh_strip> and B<dh_shlibdeps> tools no longer uses filename
+patterns to determine which files to process.  Instead, they open the
+file and look for an ELF header to determine if a given file is an
+shared object or an ELF executable.
+
+This change may cause the tools to process more files than previously.
+
+=back
+
+=item v12
+
+This compatibility level is still open for development; use with caution.
+
+Changes from v11 are:
+
+=over 8
 
 =item -
 
@@ -605,42 +733,15 @@ warning.
 
 =item -
 
-B<dh_installdocs> now installs user-supplied documentation
-(e.g. debian/I<package>.docs) into F</usr/share/doc/mainpackage>
-rather than F</usr/share/doc/package> by default as recommended by
-Debian Policy 3.9.7.
-
-If you need the old behaviour, it can be emulated by using the
-B<--mainpackage> option.
-
-Please remember to check/update your doc-base files.
+The B<--no-restart-on-upgrade> option in B<dh_installinit> has been removed.
+Please use the new name B<--no-stop-on-upgrade>
 
 =item -
 
-B<dh_installdirs> no longer creates debian/I<package> directories
-unless explicitly requested (or it has to create a subdirectory in
-it).
-
-The vast majority of all packages will be unaffected by this change.
-
-=item -
-
-B<dh> no longer creates a stamp (or log) file to record whether the
-build already ran or not.  This means that unless upstream's build
-system correctly tracks this, the build will be run twice (once for
-the "build" target and once for the "binary" target).
-
-On the other hand, this means that rebuild without cleaning
-(e.g. B<dpkg-buildpackage -nc>) will behave as most people would
-expect.
-
-The previous behaviour can restored by using B<--with build-stamp>
-
-=item -
-
-The B<makefile> buildsystem now passes B<INSTALL=install
---strip-program=true> to L<make(1)>.  Derivative buildsystems
-(e.g. B<configure> or B<cmake>) are unaffected by this change.
+There was a bug in the B<doit> (and similar) functions from
+L<Debian::Debhelper::Dh_Lib> that made them spawn a shell in one
+particular circumstance.  This bug is now removed and will cause
+helpers that rely on the bug to fail with a "command not found"-error.
 
 =item -
 
@@ -650,73 +751,35 @@ which can also see the files installed by other helpers.
 
 =item -
 
-The B<--no-restart-on-upgrade> option in dh_installinit has been removed.
-Please use the new name B<--no-stop-on-upgrade>
+The B<dh_installinit> helper no longer installs configuration for
+the upstart init system.  Instead, it will abort the build if it
+finds an old upstart configuration file.  The error is there to
+remind the package maintainer to ensure the proper removal of the
+conffiles shipped in previous versions of the package (if any).
 
 =item -
 
-The B<autoconf> buildsystem now passes B<--runstatedir=/run> to
-F<./configure>.
+The B<dh_installdeb> tool will do basic validation of some
+L<dpkg-maintscript-helper(1)> commands and will error out if the
+commands appear to be invalid.
+
+=item -
+
+The B<dh_missing> tool will now default to B<--list-missing>.
+
+=item -
+
+The B<dh_makeshlibs> tool will now only pass libraries to L<dpkg-gensymbols(1)>
+if the ELF binary has a SONAME (containing ".so").
+
+=item -
+
+The B<dh_compress> tool no longer compresses examples (i.e. anything installed
+in F<</usr/share/doc/I<package>/examples>>.)
 
 =back
 
 =back
-
-=head2 Participating in the open beta testing of new compat levels
-
-It is possible to opt-in to the open beta testing of new compat
-levels.  This is done by setting the compat level to the string
-"beta-tester".
-
-Packages using this compat level will automatically be upgraded to the
-highest compatibility level in open beta.  In periods without any open
-beta versions, the compat level will be the highest stable
-compatibility level.
-
-Please consider the following before opting in:
-
-=over 4
-
-=item *
-
-The automatic upgrade in compatibility level may cause the package (or
-a feature in it) to stop functioning.
-
-=item *
-
-Compatibility levels in open beta are still subject to change.  We
-will try to keep the changes to a minimal once the beta starts.
-However, there are no guarantees that the compat will not change
-during the beta.
-
-=item *
-
-We will notify you via debian-devel@lists.debian.org before we start a
-new open beta compat level.  However, once the beta starts we expect
-that you keep yourself up to date on changes to debhelper.
-
-=item *
-
-The "beta-tester" compatibility version in unstable and testing will
-often be different than the one in stable-backports.  Accordingly, it
-is not recommended for packages being backported regularly.
-
-=item *
-
-You can always opt-out of the beta by resetting the compatibility
-level of your package to a stable version.
-
-=back
-
-Should you still be interested in the open beta testing, please run:
-
-  % echo beta-tester > debian/compat
-
-You will also need to ensure that debian/control contains:
-
-  Build-Depends: debhelper (>= 9.20160815~)
-
-To ensure that debhelper knows about the "beta-tester" compat level.
 
 =head1 NOTES
 
@@ -744,6 +807,38 @@ Also, some additional packages may be excluded based on the contents of the
 B<DEB_BUILD_PROFILES> environment variable and B<Build-Profiles> fields in
 binary package stanzas in B<debian/control>, according to the draft policy at
 L<https://wiki.debian.org/BuildProfileSpec>.
+
+=head3 Interaction between package selections and Build-Profiles
+
+Build-Profiles affect which packages are included in the package
+selections mechanisms in debhelper.  Generally, the package selections
+are described from the assumption that all packages are enabled.  This
+section describes how the selections react when a package is disabled
+due to the active Build-Profiles (or lack of active Build-Profiles).
+
+=over 4
+
+=item -a/--arch, -i/--indep OR no selection options (a raw "dh_X" call)
+
+The package disabled by Build-Profiles is silently excluded from the
+selection.
+
+Note you will receive a warning if I<all> packages related to these
+selections are disabled.  In that case, it generally does not make
+sense to do the build in the first place.
+
+=item -N I<package> / --no-package I<package>
+
+The option is accepted and effectively does nothing.
+
+=item -p I<package> / --package I<package>
+
+The option is accepted, but debhelper will not act on the package.
+
+=back
+
+Note that it does not matter whether a package is enabled or disabled
+by default.
 
 =head2 Automatic generation of Debian install scripts
 
@@ -876,6 +971,18 @@ your package is built.
 
 Multiple things to exclude can be separated with colons, as in
 B<DH_ALWAYS_EXCLUDE=CVS:.svn>
+
+=item B<DH_EXTRA_ADDONS>
+
+If set, this adds the specified dh addons to be run in the appropriate places
+in the sequence of commands. This is equivalent to specifying the addon to run
+with the --with flag in the debian/rules file. Any --without calls specifying
+an addon in this environment variable will not be run.
+
+This is intended to be used by downstreams or specific local configurations
+that require a debhelper addon to be run during multiple builds without
+having to patch a large number of rules file. If at all possible, this should
+be avoided in favor of a --with flag in the rules file.
 
 =back
 
