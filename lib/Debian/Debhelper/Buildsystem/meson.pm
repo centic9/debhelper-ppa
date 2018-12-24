@@ -7,12 +7,21 @@ package Debian::Debhelper::Buildsystem::meson;
 
 use strict;
 use warnings;
-use Debian::Debhelper::Dh_Lib qw(dpkg_architecture_value is_cross_compiling doit warning error generated_file);
-use parent qw(Debian::Debhelper::Buildsystem::ninja);
+use Debian::Debhelper::Dh_Lib qw(compat dpkg_architecture_value is_cross_compiling doit warning error generated_file);
+use parent qw(Debian::Debhelper::Buildsystem);
 
 sub DESCRIPTION {
 	"Meson (meson.build)"
 }
+
+sub IS_GENERATOR_BUILD_SYSTEM {
+	return 1;
+}
+
+sub SUPPORTED_TARGET_BUILD_SYSTEMS {
+	return qw(ninja);
+}
+
 
 sub check_auto_buildable {
 	my $this=shift;
@@ -22,7 +31,14 @@ sub check_auto_buildable {
 
 	# Handle configure explicitly; inherit the rest
 	return 1 if $step eq "configure";
-	return $this->SUPER::check_auto_buildable(@_);
+	my $ret = $this->get_targetbuildsystem->check_auto_buildable(@_);
+	if ($ret == 0 and $this->check_auto_buildable_clean_oos_buildir(@_)) {
+		# Assume that the package can be cleaned (i.e. the build directory can
+		# be removed) as long as it is built out-of-source tree and can be
+		# configured.
+		$ret++;
+	}
+	return $ret;
 }
 
 sub new {
@@ -45,7 +61,7 @@ sub configure {
 	push @opts, "--localstatedir=/var";
 	my $multiarch=dpkg_architecture_value("DEB_HOST_MULTIARCH");
 	push @opts, "--libdir=lib/$multiarch";
-	push @opts, "--libexecdir=lib/$multiarch";
+	push(@opts, "--libexecdir=lib/$multiarch") if compat(11);
 
 	if (is_cross_compiling()) {
 		# http://mesonbuild.com/Cross-compilation.html
@@ -68,7 +84,7 @@ sub configure {
 			# Make the file name absolute as meson will be called from the build dir.
 			require Cwd;
 			$cross_file =~ s{^\./}{};
-			$cross_file = Cwd::cwd() . "/${cross_file}";
+			$cross_file = Cwd::getcwd() . "/${cross_file}";
 		}
 		push(@opts, '--cross-file', $cross_file);
 	}
@@ -87,5 +103,29 @@ sub configure {
 		die $@;
 	}
 }
+
+sub test {
+	my $this = shift;
+	my $target = $this->get_targetbuildsystem;
+
+	if (compat(12) or $target->name ne 'ninja') {
+		$target->test(@_);
+	} else {
+		# In compat 13 with meson+ninja, we prefer using "meson test"
+		# over "ninja test"
+		my %options = (
+			update_env => {
+				'LC_ALL' => 'C.UTF-8',
+			}
+		);
+		if ($this->get_parallel() > 0) {
+			$options{update_env}{MESON_TESTTHREADS} = $this->get_parallel();
+		}
+		$this->doit_in_builddir(\%options, $this->{buildcmd}, "test", @_);
+	}
+	return 1;
+}
+
+
 
 1

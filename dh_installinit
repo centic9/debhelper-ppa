@@ -19,9 +19,14 @@ B<dh_installinit> [S<I<debhelper options>>] [B<--name=>I<name>] [B<-n>] [B<-R>] 
 
 =head1 DESCRIPTION
 
-B<dh_installinit> is a debhelper program that is responsible for installing
-init scripts with associated defaults files.  In compatibility levels up to
-11, B<dh_installinit> also handled upstart job files and systemd service files.
+B<dh_installinit> is a debhelper program that is responsible for
+installing init scripts with associated defaults files.  In
+compatibility levels up to and including 10, B<dh_installinit> will
+also install some systemd related files provided by the debian
+packaging (see the L</FILES> section below).  In compatibility levels
+up to and including 11, B<dh_installinit> will also handle upstart
+jobs provided in the debian packaging (see the L</FILES> for more
+information on this as well).
 
 It also automatically generates the F<postinst> and F<postrm> and F<prerm>
 commands needed to set up the symlinks in F</etc/rc*.d/> to start and stop
@@ -137,9 +142,9 @@ Only call B<update-rc.d>. Useful for rcS scripts.
 =item B<--no-enable>
 
 Disable the init script on purge, but do not enable them on install.
-This implies a versioned dependency on B<init-system-helpers (>=
-1.51)> as it is the first (functional) version that supports
-B<<update-rc.d <script> defaults-disabled>>.
+This implies a versioned dependency on B<< init-system-helpers (E<gt>=
+1.51) >> as it is the first (functional) version that supports
+B<< update-rc.d E<lt>scriptE<gt> defaults-disabled >>.
 
 B<Note> that this option does not affect whether the services are
 started.  Please remember to also use B<--no-start> if the service
@@ -223,7 +228,7 @@ init(options => {
 	"no-enable" => \$dh{NO_ENABLE},
 });
 
-# PROMISE: DH NOOP WITHOUT service tmpfile default upstart init init.d tmp(usr/lib/tmpfiles.d) tmp(etc/tmpfiles.d)
+# PROMISE: DH NOOP WITHOUT service tmpfile default upstart init init.d tmp(usr/lib/tmpfiles.d) tmp(etc/tmpfiles.d) cli-options(--init-script|-d|--remove-d|-o|--only-scripts)
 
 my %snippet_options = ('snippet-order' => 'service');
 
@@ -326,7 +331,7 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 				$name =~ s/^\Q$tmp\E//g;
 				if ($name =~ m,^/usr/lib/tmpfiles\.d/, ||
 					$name =~ m,^/etc/tmpfiles\.d/,) {
-					push @tmpfiles, $name;
+					push(@tmpfiles, basename($name));
 				}
 			},
 			no_chdir => 1,
@@ -344,6 +349,7 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 		# the parameters to pass to update-rc.d. If not set,
 		# we have to say "defaults".
 		my $params = 'defaults';
+		my $update_rcd_params = compat(11) ? '' : '--skip-systemd-native ';
 		if ($dh{NO_ENABLE}) {
 			$params = 'defaults-disabled';
 			addsubstvar($package, "misc:Depends", "init-system-helpers (>= 1.51)");
@@ -359,29 +365,47 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 				if ($dh{RESTART_AFTER_UPGRADE}) {
 					# update-rc.d, and restart (or
 					# start if new install) script
-					autoscript($package,"postinst", "postinst-init-restart",
-						{ 'SCRIPT' => $script, 'INITPARMS' => $params, 'ERROR_HANDLER' => $dh{ERROR_HANDLER} },
+					autoscript($package, 'postinst', 'postinst-init-restart',
+						{
+							'SCRIPT' => $script, 'INITPARMS' => $params, 'ERROR_HANDLER' => $dh{ERROR_HANDLER},
+							'INVOKE_RCD_PARAMS' => $update_rcd_params,
+						},
 						\%snippet_options);
 				}
 				else {
 					# update-rc.d, and start script
-					autoscript($package,"postinst", "postinst-init",
-						{ 'SCRIPT' => $script, 'INITPARMS' => $params, 'ERROR_HANDLER' => $dh{ERROR_HANDLER} },
+					autoscript($package, 'postinst', 'postinst-init',
+						{
+							'SCRIPT' => $script, 'INITPARMS' => $params, 'ERROR_HANDLER' => $dh{ERROR_HANDLER},
+							'INVOKE_RCD_PARAMS' => $update_rcd_params,
+						},
 						\%snippet_options);
 				}
 			
 				if ($dh{R_FLAG} || $dh{RESTART_AFTER_UPGRADE}) {
 					# stops script only on remove
-					autoscript($package,"prerm","prerm-init-norestart",
-						{ 'SCRIPT' => $script, 'ERROR_HANDLER' => $dh{ERROR_HANDLER} },
+					autoscript($package, 'prerm', 'prerm-init-norestart',
+						{
+							'SCRIPT' => $script, 'ERROR_HANDLER' => $dh{ERROR_HANDLER},
+							'INVOKE_RCD_PARAMS' => $update_rcd_params,
+						},
 						\%snippet_options);
 				}
 				else {
 					# always stops script
-					autoscript($package,"prerm","prerm-init",
-						{ 'SCRIPT' => $script, 'ERROR_HANDLER' => $dh{ERROR_HANDLER} },
+					autoscript($package, 'prerm', 'prerm-init',
+						{
+							'SCRIPT' => $script, 'ERROR_HANDLER' => $dh{ERROR_HANDLER},
+							'INVOKE_RCD_PARAMS' => $update_rcd_params,
+						},
 						\%snippet_options);
 				}
+				# The --skip-systemd-native option requires
+				# init-system-helpers (>= 1.54) and since we need it
+				# from prerm we need init-system-helpers to have been
+				# unpacked before the package is being unpacked.
+				addsubstvar($package, 'misc:Pre-Depends', 'init-system-helpers (>= 1.54~)')
+					if $update_rcd_params !~ m/^\s*$/;
 			}
 			else {
 				# just update-rc.d
@@ -400,7 +424,7 @@ foreach my $package (@{$dh{DOPACKAGES}}) {
 
 =head1 SEE ALSO
 
-L<debhelper(7)>
+L<debhelper(7)>, L<dh_installsystemd(1)>
 
 This program is a part of debhelper.
 

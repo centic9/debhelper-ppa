@@ -133,7 +133,7 @@ on_pkgs_in_parallel {
 					! -iname "*.xz" ! -iname "*.lz" ! -iname "*.lzma" \\
 					! -iname "*.svg" ! -iname "*.svgz" ! -iname "*.js" \\
 					! -name "index.sgml" ! -name "objects.inv" ! -name "*.map" \\
-					! -name "*.devhelp2" \\
+					! -name "*.devhelp2" ! -name "search_index.json" \\
 					! -name "copyright" 2>/dev/null || true;
 				find usr/share/fonts/X11 -type f -name "*.pcf" 2>/dev/null || true;
 			`);
@@ -193,8 +193,15 @@ on_pkgs_in_parallel {
 				my ($directory) = $link =~ m:(.*)/:;
 				my $linkval = readlink($link);
 				if (! -e "$directory/$linkval" && -e "$directory/$linkval.gz") {
+					# Avoid duplicate ".gz.gz" if the link already has
+					# the .gz extension.  This can happen via
+					# dh_installman when the .so is already compressed
+					# and then dh_installman reencodes the target
+					# manpage.
+					my $link_name = $link;
+					$link_name .= '.gz' if $link_name !~ m/[.]gz$/;
 					rm_files($link, "$link.gz");
-					make_symlink_raw_target("$linkval.gz","$link.gz");
+					make_symlink_raw_target("$linkval.gz", $link_name);
 					delete $links{$link};
 					$changed++;
 				}

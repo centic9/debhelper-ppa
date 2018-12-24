@@ -7,6 +7,7 @@
 package Debian::Debhelper::Dh_Lib;
 use strict;
 use warnings;
+use utf8;
 
 use constant {
 	# Lowest compat level supported
@@ -14,8 +15,11 @@ use constant {
 	# Lowest compat level that does *not* cause deprecation
 	# warnings
 	'LOWEST_NON_DEPRECATED_COMPAT_LEVEL' => 9,
+	# Lowest compat level to generate "debhelper-compat (= X)"
+	# relations for.
+	'LOWEST_VIRTUAL_DEBHELPER_COMPAT_LEVEL' => 9,
 	# Highest compat level permitted
-	'MAX_COMPAT_LEVEL' => 12,
+	'MAX_COMPAT_LEVEL' => 13,
 	# Magic value for xargs
 	'XARGS_INSERT_PARAMS_HERE' => \'<INSERT-HERE>', #'# Hi emacs.
 	# Magic value for debhelper tools to request "current version"
@@ -28,43 +32,145 @@ use constant {
 	# Package-Type / extension for dbgsym packages
 	# TODO: Find a way to determine this automatically from the vendor
 	#  - blocked by Dpkg::Vendor having a rather high load time (for debhelper)
-	'DBGSYM_PACKAGE_TYPE' => 'ddeb',
+	'DBGSYM_PACKAGE_TYPE' => DEFAULT_PACKAGE_TYPE,
 };
 
-use Errno qw(ENOENT);
+use Errno qw(ENOENT EXDEV);
 use Exporter qw(import);
 use File::Glob qw(bsd_glob GLOB_CSH GLOB_NOMAGIC GLOB_TILDE);
 our (@EXPORT, %dh);
-@EXPORT=qw(&init &doit &doit_noerror &complex_doit &verbose_print &error
-            &nonquiet_print &print_and_doit &print_and_doit_noerror
-            &warning &tmpdir &pkgfile &pkgext &pkgfilename &isnative
-	    &autoscript &filearray &filedoublearray &is_build_profile_active
-	    &getpackages &basename &dirname &xargs %dh &process_pkg
-	    &compat &addsubstvar &delsubstvar &excludefile &package_arch
-	    &package_is_arch_all &package_binary_arch &package_declared_arch
-	    &is_udeb &debhelper_script_subst &escape_shell
-	    &inhibit_log &load_log &write_log &commit_override_log
-	    &dpkg_architecture_value &sourcepackage &make_symlink
-	    &is_make_jobserver_unavailable &clean_jobserver_makeflags
-	    &cross_command &set_buildflags &get_buildoption
-	    &install_dh_config_file &error_exitcode &package_multiarch
-	    &install_file &install_prog &install_lib &install_dir
-	    &get_source_date_epoch &is_cross_compiling
-	    &generated_file &autotrigger &package_section
-	    &restore_file_on_clean &restore_all_files
-	    &open_gz &reset_perm_and_owner &deprecated_functionality
-	    &log_installed_files &buildarch &rename_path
-	    &on_pkgs_in_parallel &on_selected_pkgs_in_parallel
-	    &rm_files &make_symlink_raw_target &on_items_in_parallel
-	    XARGS_INSERT_PARAMS_HERE &glob_expand_error_handler_reject
-	    &glob_expand_error_handler_warn_and_discard &glob_expand
-	    &glob_expand_error_handler_silently_ignore DH_BUILTIN_VERSION
-	    &print_and_complex_doit &default_sourcedir &qx_cmd
-	    &compute_doc_main_package &is_so_or_exec_elf_file &hostarch
-	    &assert_opt_is_known_package &dbgsym_tmpdir &find_hardlinks
-	    &should_use_root &gain_root_cmd DEFAULT_PACKAGE_TYPE
-	    DBGSYM_PACKAGE_TYPE
-);
+@EXPORT = (
+	# debhelper basis functionality
+qw(
+	init
+	%dh
+	compat
+),
+	# External command tooling API
+qw(
+	doit
+	doit_noerror
+	qx_cmd
+	xargs
+	XARGS_INSERT_PARAMS_HERE
+	print_and_doit
+	print_and_doit_noerror
+
+	complex_doit
+	escape_shell
+),
+	# Logging/messaging/error handling
+qw(
+	error
+	error_exitcode
+	warning
+	verbose_print
+	nonquiet_print
+),
+	# Package related actions
+qw(
+	getpackages
+	sourcepackage
+	tmpdir
+	dbgsym_tmpdir
+	default_sourcedir
+	pkgfile
+	pkgext
+	pkgfilename
+	package_is_arch_all
+	package_binary_arch
+	package_declared_arch
+	package_multiarch
+	package_section
+	package_arch
+	process_pkg
+	compute_doc_main_package
+	isnative
+	is_udeb
+),
+	# File/path related actions
+qw(
+	basename
+	dirname
+	install_file
+	install_prog
+	install_lib
+	install_dir
+	install_dh_config_file
+	make_symlink
+	make_symlink_raw_target
+	rename_path
+	find_hardlinks
+	rm_files
+	excludefile
+	is_so_or_exec_elf_file
+	is_empty_dir
+	reset_perm_and_owner
+	log_installed_files
+
+	filearray
+	filedoublearray
+	glob_expand
+	glob_expand_error_handler_reject
+	glob_expand_error_handler_warn_and_discard
+	glob_expand_error_handler_silently_ignore
+	glob_expand_error_handler_reject_nomagic_warn_discard
+),
+	# Generate triggers, substvars, maintscripts, build-time temporary files
+qw(
+	autoscript
+	autotrigger
+	addsubstvar
+	delsubstvar
+
+	generated_file
+	restore_file_on_clean
+),
+	# Split tasks among different cores
+qw(
+	on_pkgs_in_parallel
+	on_items_in_parallel
+	on_selected_pkgs_in_parallel
+),
+	# R³ framework
+qw(
+	should_use_root
+	gain_root_cmd
+
+),
+	# Architecture, cross-tooling, build options and profiles
+qw(
+	dpkg_architecture_value
+	hostarch
+	cross_command
+	is_cross_compiling
+	is_build_profile_active
+	get_buildoption
+),
+	# Other
+qw(
+	open_gz
+	get_source_date_epoch
+	deprecated_functionality
+),
+	# Special-case functionality (e.g. tool specific), debhelper(-core) functionality and deprecated functions
+qw(
+	inhibit_log
+	load_log
+	write_log
+	commit_override_log
+	debhelper_script_subst
+	is_make_jobserver_unavailable
+	clean_jobserver_makeflags
+	set_buildflags
+	DEFAULT_PACKAGE_TYPE
+	DBGSYM_PACKAGE_TYPE
+	DH_BUILTIN_VERSION
+	assert_opt_is_known_package
+	restore_all_files
+
+	buildarch
+));
 
 # The Makefile changes this if debhelper is installed in a PREFIX.
 my $prefix="/usr";
@@ -78,6 +184,18 @@ our $PKGVERSION_REGEX = qr/
                  [0-9][0-9A-Za-z.+:~]*       # Upstream version (with no hyphens)
                  (?: - [0-9A-Za-z.+:~]+ )*   # Optional debian revision (+ upstreams versions with hyphens)
                           /xoa;
+
+# From Policy 5.1:
+#
+#  The field name is composed of US-ASCII characters excluding control
+#  characters, space, and colon (i.e., characters in the ranges U+0021
+#  (!) through U+0039 (9), and U+003B (;) through U+007E (~),
+#  inclusive). Field names must not begin with the comment character
+#  (U+0023 #), nor with the hyphen character (U+002D -).
+our $DEB822_FIELD_REGEX = qr/
+	    [\x21\x22\x24-\x2C\x2F-\x39\x3B-\x7F]  # First character
+	    [\x21-\x39\x3B-\x7F]*                  # Subsequent characters (if any)
+    /xoa;
 
 sub init {
 	my %params=@_;
@@ -140,7 +258,7 @@ sub init {
 	# make sure verbose is on. Otherwise, check DH_QUIET.
 	if (defined $ENV{DH_VERBOSE} && $ENV{DH_VERBOSE} ne "") {
 		$dh{VERBOSE}=1;
-	} elsif (defined $ENV{DH_QUIET} && $ENV{DH_QUIET} ne "") {
+	} elsif (defined $ENV{DH_QUIET} && $ENV{DH_QUIET} ne "" || get_buildoption("terse")) {
 		$dh{QUIET}=1;
 	}
 
@@ -338,6 +456,7 @@ sub _doit {
 					chdir($dir) or error("chdir(\"${dir}\) failed: $!");
 				}
 			}
+			open(STDIN, '<', '/dev/null') or error("redirect STDIN failed: $!");
 			if (defined(my $output = $options->{stdout})) {
 				open(STDOUT, '>', $output) or error("redirect STDOUT failed: $!");
 			}
@@ -419,19 +538,6 @@ sub complex_doit {
 		# The join makes system get a scalar so it forks off a shell.
 		system(join(" ", @_)) == 0 || error_exitcode(join(" ", @_))
 	}			
-}
-
-# Run a command and display the command to stdout except when quiet
-# Use print_and_doit() if you can, instead of this function, because
-# this function forks a shell. However, this function can handle more
-# complicated stuff like redirection.
-sub print_and_complex_doit {
-	nonquiet_print(join(" ",@_));
-
-	if (! $dh{NO_ACT}) {
-		# The join makes system get a scalar so it forks off a shell.
-		system(join(" ", @_)) == 0 || error_exitcode(join(" ", @_))
-	}
 }
 
 
@@ -535,8 +641,16 @@ sub rename_path {
 	}
 	return 1 if $dh{NO_ACT};
 	if (not rename($source, $dest)) {
-		my $files = escape_shell($source, $dest);
-		error("mv $files: $!")
+		my $ok = 0;
+		if ($! == EXDEV) {
+			# Replay with a fork+exec to handle crossing two mount
+			# points (See #897569)
+			$ok = _doit('mv', $source, $dest);
+		}
+		if (not $ok) {
+			my $files = escape_shell($source, $dest);
+			error("mv $files: $!");
+		}
 	}
 	return 1;
 }
@@ -653,7 +767,8 @@ sub error {
 
 # Output a warning.
 sub warning {
-	my $message=shift;
+	my ($message) = @_;
+	$message //= '';
 	
 	print STDERR basename($0).": $message\n";
 }
@@ -683,6 +798,12 @@ my $compat_from_bd;
 	my $warned_compat = $ENV{DH_INTERNAL_TESTSUITE_SILENT_WARNINGS} ? 1 : 0;
 	my $c;
 
+	# Used mainly for testing
+	sub resetcompat {
+		undef $c;
+		undef $compat_from_bd;
+	}
+
 	sub compat {
 		my $num=shift;
 		my $nowarn=shift;
@@ -708,7 +829,7 @@ my $compat_from_bd;
 						error("debian/compat must contain a positive number (found: \"${new_compat}\")");
 					}
 					if (defined($compat_from_bd) and $compat_from_bd != -1) {
-						warning("Please specific the debhelper compat level exactly once.");
+						warning("Please specify the debhelper compat level exactly once.");
 						warning(" * debian/compat requests compat ${new_compat}.");
 						warning(" * debian/control requests compat ${compat_from_bd} via \"debhelper-compat (= ${compat_from_bd})\"");
 						error("debhelper compat level specified both in debian/compat and via build-dependency on debhelper-compat");
@@ -884,22 +1005,33 @@ sub pkgfilename {
 # As a side effect, sets $dh{VERSION} to the version of this package.
 {
 	# Caches return code so it only needs to run dpkg-parsechangelog once.
-	my %isnative_cache;
+	my (%isnative_cache, %pkg_version);
 	
 	sub isnative {
-		my $package=shift;
+		my ($package) = @_;
+		my $cache_key = $package;
 
-		return $isnative_cache{$package} if defined $isnative_cache{$package};
+		if (exists($isnative_cache{$cache_key})) {
+			$dh{VERSION} = $pkg_version{$cache_key};
+			return $isnative_cache{$cache_key};
+		}
+
+		# Make sure we look at the correct changelog.
+		my $isnative_changelog = pkgfile($package,"changelog");
+		if (! $isnative_changelog) {
+			$isnative_changelog = "debian/changelog";
+			$cache_key = '_source';
+			# check if we looked up the default changelog
+			if (exists($isnative_cache{$cache_key})) {
+				$dh{VERSION} = $pkg_version{$cache_key};
+				return $isnative_cache{$cache_key};
+			}
+		}
 
 		if (not %isnative_cache) {
 			require Dpkg::Changelog::Parse;
 		}
 
-		# Make sure we look at the correct changelog.
-		my $isnative_changelog=pkgfile($package,"changelog");
-		if (! $isnative_changelog) {
-			$isnative_changelog="debian/changelog";
-		}
 		my $res = Dpkg::Changelog::Parse::changelog_parse(
 			file => $isnative_changelog,
 			compression => 0,
@@ -907,19 +1039,20 @@ sub pkgfilename {
 		if (not defined($res)) {
 			error("No changelog entries for $package!? (changelog file: ${isnative_changelog})");
 		}
-		# Get the package version.
-		$dh{VERSION} = $res->{'Version'};
-		# Did the changelog parse fail?
-		if ($dh{VERSION} eq q{}) {
-			error("changelog parse failure");
+		my $version = $res->{'Version'};
+		# Do we have a valid version?
+		if (not defined($version) or not $version->is_valid) {
+			error("changelog parse failure; invalid or missing version");
 		}
+		# Get and cache the package version.
+		$dh{VERSION} = $pkg_version{$cache_key} = $version->as_string;
 
 		# Is this a native Debian package?
 		if (index($dh{VERSION}, '-') > -1) {
-			return $isnative_cache{$package}=0;
+			return $isnative_cache{$cache_key} = 0;
 		}
 		else {
-			return $isnative_cache{$package}=1;
+			return $isnative_cache{$cache_key} = 1;
 		}
 	}
 }
@@ -1187,6 +1320,20 @@ sub glob_expand_error_handler_warn_and_discard {
 	return;
 }
 
+# Emulates the "old" glob mechanism; not recommended for new code as
+# it permits some globs expand to nothing with only a warning.
+sub glob_expand_error_handler_reject_nomagic_warn_discard {
+	my ($pattern, $dir_ref) = @_;
+	for my $dir (@{$dir_ref}) {
+		my $full_pattern = "$dir/$pattern";
+		my @matches = bsd_glob($full_pattern, GLOB_CSH & ~(GLOB_TILDE));
+		if (@matches) {
+			goto \&glob_expand_error_handler_reject;
+		}
+	}
+	goto \&glob_expand_error_handler_warn_and_discard;
+}
+
 sub glob_expand_error_handler_silently_ignore {
 	return;
 }
@@ -1230,7 +1377,7 @@ sub filedoublearray {
 		require Cwd;
 		my $cmd=Cwd::abs_path($file);
 		$ENV{"DH_CONFIG_ACT_ON_PACKAGES"} = join(",", @{$dh{"DOPACKAGES"}});
-		open (DH_FARRAY_IN, "$cmd |") || error("cannot run $file: $!");
+		open(DH_FARRAY_IN, '-|', $cmd) || error("cannot run $file: $!");
 		delete $ENV{"DH_CONFIG_ACT_ON_PACKAGES"};
 	}
 	else {
@@ -1269,7 +1416,22 @@ sub filedoublearray {
 
 	if (!close(DH_FARRAY_IN)) {
 		if ($x) {
-			error("Error closing fd/process for $file: $!") if $!;
+			my ($err, $proc_err) = ($!, $?);
+			error("Error closing fd/process for $file: $err") if $err;
+			# The interpreter did not like the file for some reason.
+			# Lets check if the maintainer intended it to be
+			# executable.
+			if (not is_so_or_exec_elf_file($file) and not _has_shbang_line($file)) {
+				warning("$file is marked executable but does not appear to an executable config.");
+				warning();
+				warning("If $file is intended to be an executable config file, please ensure it can");
+				warning("be run as a stand-alone script/program (e.g. \"./${file}\")");
+				warning("Otherwise, please remove the executable bit from the file (e.g. chmod -x \"${file}\")");
+				warning();
+				warning('Please see "Executable debhelper config files" in debhelper(7) for more information.');
+				warning();
+			}
+			$? = $proc_err;
 			error_exitcode("$file (executable config)");
 		} else {
 			error("problem reading $file: $!");
@@ -1377,7 +1539,15 @@ sub is_cross_compiling {
 # As a side effect, populates %package_arches and %package_types
 # with the types of all packages (not only those returned).
 my (%package_types, %package_arches, %package_multiarches, %packages_by_type,
-    %package_sections, $sourcepackage, %package_cross_type);
+    %package_sections, $sourcepackage, %package_cross_type, %dh_bd_sequences);
+
+# Resets the arrays; used mostly for testing
+sub resetpackages {
+	undef $sourcepackage;
+	%package_types = %package_arches = %package_multiarches =
+	    %packages_by_type = %package_sections = %package_cross_type = ();
+	%dh_bd_sequences = ();
+}
 
 # Returns source package name
 sub sourcepackage {
@@ -1400,9 +1570,10 @@ sub getpackages {
 	my $package="";
 	my $arch="";
 	my $section="";
+	my $valid_pkg_re = qr{^${PKGNAME_REGEX}$}o;
 	my ($package_type, $multiarch, %seen, @profiles, $source_section,
 		$included_in_build_profile, $cross_type, $cross_target_arch,
-		%bd_fields, $bd_field_value);
+		%bd_fields, $bd_field_value, %seen_fields);
 	if (exists $ENV{'DEB_BUILD_PROFILES'}) {
 		@profiles=split /\s+/, $ENV{'DEB_BUILD_PROFILES'};
 	}
@@ -1418,32 +1589,55 @@ sub getpackages {
 		s/\s+$//;
 		next if m/^\s*+\#/;
 
-		if (/^Source:\s*(.*)/i) {
-			$sourcepackage = $1;
-			$bd_field_value = undef;
+		if (/^\s/) {
+			if (not %seen_fields) {
+				error("Continuation line seen before first stanza in debian/control (line $.)");
+			}
+			# Continuation line
+			push(@{$bd_field_value}, $_) if $bd_field_value;
+		} elsif (not $_ and not %seen_fields) {
+			# Ignore empty lines before first stanza
 			next;
-		} elsif (/^Section:\s(.*)$/i) {
-			$source_section = $1;
-			$bd_field_value = undef;
-			next;
-		} elsif (/^(Build-Depends(?:-Arch|-Indep)?):\s*(.*)$/i) {
-			my ($field, $value) = (lc($1), $2);
-			$bd_field_value = [$value];
-			$bd_fields{$field} = $bd_field_value;
-		} elsif (/^\S/) {
-			$bd_field_value = undef;
-		} elsif (/^\s/ and $bd_field_value) {
-			push(@{$bd_field_value}, $_);
+		} elsif ($_) {
+			my ($field_name, $value);
+
+			if (m/^($DEB822_FIELD_REGEX):\s*(.*)/o) {
+				($field_name, $value) = (lc($1), $2);
+				if (exists($seen_fields{$field_name})) {
+					my $first_time = $seen_fields{$field_name};
+					error("${field_name}-field appears twice in the same stanza of debian/control. " .
+						  "First time on line $first_time, second time: $.");
+				}
+				$seen_fields{$field_name} = $.;
+				$bd_field_value = undef;
+			} else {
+				# Invalid file
+				error("Parse error in debian/control, line $., read: $_");
+			}
+			if ($field_name eq 'source') {
+				$sourcepackage = $value;
+				if ($sourcepackage !~ $valid_pkg_re) {
+					error('Source-field must be a valid package name, ' .
+						  "got: \"${sourcepackage}\", should match \"${valid_pkg_re}\"");
+				}
+				next;
+			} elsif ($field_name eq 'section') {
+				$source_section = $value;
+				next;
+			} elsif ($field_name =~ /^(?:build-depends(?:-arch|-indep)?)$/) {
+				$bd_field_value = [$value];
+				$bd_fields{$field_name} = $bd_field_value;
+			}
 		}
-		next if not $_ and not defined($sourcepackage);
-		last if (!$_ or eof); # end of stanza.
+		last if not $_ or eof;
 	}
 	error("could not find Source: line in control file.") if not defined($sourcepackage);
 	if (%bd_fields) {
 		my ($dh_compat_bd, $final_level);
 		for my $field (sort(keys(%bd_fields))) {
 			my $value = join(' ', @{$bd_fields{$field}});
-			$value =~ s/\s*,\s*$//;
+			$value =~ s/^\s*//;
+			$value =~ s/\s*(?:,\s*)?$//;
 			for my $dep (split(/\s*,\s*/, $value)) {
 				if ($dep =~ m/^debhelper-compat\s*[(]\s*=\s*(${PKGVERSION_REGEX})\s*[)]$/) {
 					my $version = $1;
@@ -1478,60 +1672,114 @@ sub getpackages {
 					warning("   compat level into the file debian/compat.  (E.g. \"echo ${clevel} > debian/compat\")");
 					error("Could not parse desired debhelper compat level from relation: $dep");
 				}
+				# Build-Depends on dh-sequence-<foo> OR dh-sequence-<foo> (<op> <version>)
+				if ($dep =~ m/^dh-sequence-(${PKGNAME_REGEX})\s*(?:[(]\s*(?:[<>]?=|<<|>>)\s*(${PKGVERSION_REGEX})\s*[)])?$/) {
+					my $sequence = $1;
+					if ($field ne 'build-depends') {
+						warning("Ignoring dh sequence add-on request for sequenece ${sequence} via ${field}: Please move it to the Build-Depends field");
+						warning("The relation that triggered this warning was: ${dep} (from the ${field} field)");
+						next;
+					}
+					$dh_bd_sequences{$sequence} = 1;
+				}
 			}
-		}
-		if (defined($final_level)) {
-			warning("The use of \"debhelper-compat (= ${final_level})\" is experimental and may change (or be retired) without notice");
 		}
 		$compat_from_bd = $final_level // -1;
 	} else {
 		$compat_from_bd = -1;
 	}
 
+	%seen_fields = ();
+
 	while (<$fd>) {
 		chomp;
 		s/\s+$//;
-		if (/^Package:\s*(.*)/i) {
-			$package=$1;
-			# Detect duplicate package names in the same control file.
-			if (! $seen{$package}) {
-				$seen{$package}=1;
-			}
-			else {
-				error("debian/control has a duplicate entry for $package");
-			}
-			$included_in_build_profile=1;
-		} elsif (/^Section:\s(.*)$/i) {
-			$section = $1;
-		} elsif (/^Architecture:\s*(.*)/i) {
-			$arch=$1;
-		} elsif (/^(?:X[BC]*-)?Package-Type:\s*(.*)/i) {
-			$package_type=$1;
-		} elsif (/^Multi-Arch:\s*(.*)/i) {
-			$multiarch = $1;
-		} elsif (/^X-DH-Build-For-Type:\s*(.*)/i) {
-			$cross_type = $1;
-			if ($cross_type ne 'host' and $cross_type ne 'target') {
-				error("Unknown value of X-DH-Build-For-Type \"$cross_type\" at debian/control:$.");
-			}
-		} elsif (/^Build-Profiles:\s*(.*)/i) {
-			# rely on libdpkg-perl providing the parsing functions
-			# because if we work on a package with a Build-Profiles
-			# field, then a high enough version of dpkg-dev is needed
-			# anyways
-			my $build_profiles=$1;
-			eval {
-				require Dpkg::BuildProfiles;
-				my @restrictions=Dpkg::BuildProfiles::parse_build_profiles($build_profiles);
-				if (@restrictions) {
-					$included_in_build_profile=Dpkg::BuildProfiles::evaluate_restriction_formula(\@restrictions, \@profiles);
-				}
-			};
-			if ($@) {
-				error("The control file has a Build-Profiles field. Requires libdpkg-perl >= 1.17.14");
-			}
+		if (m/^\#/) {
+			# Skip unless EOF for the special case where the last line
+			# is a comment line directly after the last stanza.  In
+			# that case we need to "commit" the last stanza as well or
+			# we end up omitting the last package.
+			next if not eof;
+			$_  = '';
 		}
 
+
+		if (/^\s/) {
+			# Continuation line
+			if (not %seen_fields) {
+				error("Continuation line seen outside stanza in debian/control (line $.)");
+			}
+		} elsif (not $_ and not %seen_fields) {
+			# Ignore empty lines before first stanza
+			next;
+		} elsif ($_) {
+			my ($field_name, $value);
+
+			if (m/^($DEB822_FIELD_REGEX):\s*(.*)/o) {
+				($field_name, $value) = (lc($1), $2);
+				if (exists($seen_fields{$field_name})) {
+					my $first_time = $seen_fields{$field_name};
+					error("${field_name}-field appears twice in the same stanza of debian/control. " .
+						  "First time on line $first_time, second time: $.");
+				}
+				$seen_fields{$field_name} = $.;
+				$bd_field_value = undef;
+			} else {
+				# Invalid file
+				error("Parse error in debian/control, line $., read: $_");
+			}
+
+			if ($field_name eq 'package') {
+				$package = $value;
+				# Detect duplicate package names in the same control file.
+				if (! $seen{$package}) {
+					$seen{$package}=1;
+				} else {
+					error("debian/control has a duplicate entry for $package");
+				}
+				if ($package !~ $valid_pkg_re) {
+					error('Package-field must be a valid package name, ' .
+						  "got: \"${package}\", should match \"${valid_pkg_re}\"");
+				}
+				$included_in_build_profile=1;
+			} elsif ($field_name eq 'section') {
+				$section = $value;
+			} elsif ($field_name eq 'architecture') {
+				$arch = $value;
+			} elsif ($field_name =~ m/^(?:x[bc]*-)?package-type$/) {
+				if (defined($package_type)) {
+					my $help = "(issue seen prior \"Package\"-field)";
+					$help = "for package ${package}" if $package;
+					error("Multiple definitions of (X-)Package-Type in line $. ${help}");
+				}
+				$package_type = $value;
+			} elsif ($field_name eq 'multi-arch') {
+				$multiarch = $value;
+			} elsif ($field_name eq 'x-dh-build-for-type') {
+				$cross_type = $value;
+				if ($cross_type ne 'host' and $cross_type ne 'target') {
+					error("Unknown value of X-DH-Build-For-Type \"$cross_type\" at debian/control:$.");
+				}
+			} elsif ($field_name eq 'build-profiles') {
+				# rely on libdpkg-perl providing the parsing functions
+				# because if we work on a package with a Build-Profiles
+				# field, then a high enough version of dpkg-dev is needed
+				# anyways
+				my $build_profiles = $value;
+				eval {
+					require Dpkg::BuildProfiles;
+					my @restrictions=Dpkg::BuildProfiles::parse_build_profiles($build_profiles);
+					if (@restrictions) {
+						$included_in_build_profile = Dpkg::BuildProfiles::evaluate_restriction_formula(
+							\@restrictions,
+							\@profiles);
+					}
+				};
+				if ($@) {
+					error("The control file has a Build-Profiles field. Requires libdpkg-perl >= 1.17.14");
+				}
+			}
+		}
 		if (!$_ or eof) { # end of stanza.
 			if ($package) {
 				$package_types{$package}=$package_type // 'deb';
@@ -1557,8 +1805,8 @@ sub getpackages {
 							$included = 1 if samearch($desired_arch, $arch);
 						}
 						if ($included) {
-							push(@{$packages_by_type{'arch'}}, $package);
-							push(@{$packages_by_type{'both'}}, $package);
+								push(@{$packages_by_type{'arch'}}, $package);
+								push(@{$packages_by_type{'both'}}, $package);
 						}
 					}
 				}
@@ -1568,6 +1816,7 @@ sub getpackages {
 			$cross_type = undef;
 			$arch='';
 			$section='';
+			%seen_fields = ();
 		}
 	}
 	close($fd);
@@ -1717,6 +1966,14 @@ sub is_udeb {
 		}
 		return $packages_to_process{$package} // 0;
 	}
+}
+
+# Only useful for dh(1)
+sub bd_dh_sequences {
+	# Use $sourcepackage as check because %dh_bd_sequence can be empty
+	# after running getpackages().
+	getpackages() if not defined($sourcepackage);
+	return sort(keys(%dh_bd_sequences));
 }
 
 sub _concat_slurp_script_files {
@@ -2246,6 +2503,32 @@ sub is_so_or_exec_elf_file {
 	my $elf_type_unpacked = unpack($short_format, $elf_type);
 	return 0 if $elf_type_unpacked != ELF_TYPE_EXECUTABLE and $elf_type_unpacked != ELF_TYPE_SHARED_OBJECT;
 	return 1;
+}
+
+sub _has_shbang_line {
+	my ($file) = @_;
+	open(my $fd, '<', $file) or error("open $file: $!");
+	my $line = <$fd>;
+	close($fd);
+	return 1 if (defined($line) and substr($line, 0, 2) eq '#!');
+	return 0;
+}
+
+# Returns true iff the given argument is an empty directory.
+# Corner-cases:
+#  - false if not a directory
+sub is_empty_dir {
+	my ($dir) = @_;
+	return 0 if not -d $dir;
+	my $ret = 1;
+	opendir(my $dir_fd, $dir) or error("opendir($dir) failed: $!");
+	while (defined(my $entry = readdir($dir_fd))) {
+		next if $entry eq '.' or $entry eq '..';
+		$ret = 0;
+		last;
+	}
+	closedir($dir_fd);
+	return $ret;
 }
 
 sub on_pkgs_in_parallel(&) {

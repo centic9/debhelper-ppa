@@ -8,6 +8,9 @@ dh - debhelper command sequencer
 
 use strict;
 use warnings;
+use constant {
+	'UNSKIPPABLE_CLI_OPTIONS_BUILD_SYSTEM' => q(-S|--buildsystem|-D|--sourcedirectory|-B|--builddirectory),
+};
 use Debian::Debhelper::Dh_Lib;
 use Debian::Debhelper::SequencerUtil;
 
@@ -54,6 +57,16 @@ than once, or multiple addons can be listed, separated by commas.
 This is used when there is a third-party package that provides
 debhelper commands. See the F<PROGRAMMING> file for documentation about
 the sequence addon interface.
+
+A B<Build-Depends> relation on the package B<dh-sequence->I<addon>
+implies a B<--with> I<addon>. This avoids the need for an explicit
+B<--with> in F<debian/rules> that only duplicates what is already
+declared via the build dependencies in F<debian/control>.  Note that
+only relations in the B<Build-Depends> field are considered
+(i.e. B<Build-Depends-Indep> and B<Build-Depends-Arch> are
+deliberately unsupported).  Please keep in mind that B<dh> insists on
+"simple" relations (e.g. a relation like "B<dh-sequence->I<addon> |
+B<some-other-pkg>" will I<not> imply B<--with> I<addon>).
 
 =item B<--without> I<addon>
 
@@ -102,10 +115,10 @@ easy way to do with is by adding an override target for that command.
 	#!/usr/bin/make -f
 	%:
 		dh $@
-	
+
 	override_dh_strip:
 		dh_strip -Xfoo
-	
+
 	override_dh_auto_configure:
 		dh_auto_configure -- --with-foo --disable-bar
 
@@ -186,7 +199,7 @@ want it to run, by defining empty override targets for each command.
 	#!/usr/bin/make -f
 	%:
 		dh $@
-	
+
 	# Commands not to run:
 	override_dh_auto_test override_dh_compress override_dh_fixperms:
 
@@ -197,7 +210,7 @@ These will be skipped when running build-arch and binary-arch sequences.
 	#!/usr/bin/make -f
 	%:
 		dh $@
-	
+
 	override_dh_auto_build-indep:
 		$(MAKE) -C docs
 
@@ -259,7 +272,7 @@ option to ensure they only work on architecture dependent packages.
 
 =head1 DEPRECATED OPTIONS
 
-The following options are deprecated. It's much 
+The following options are deprecated. It's much
 better to use override targets instead.  They are B<not> available
 in compat 10.
 
@@ -292,40 +305,27 @@ matches, the last one in the sequence will be used.
 
 # Stash this away before init modifies it.
 my @ARGV_orig=@ARGV;
-
-if (not compat(9, 1)) {
-	# Enable autoreconf'ing by default in compat 10 or later.  Use the
-	# sequence add-on so existing --without=autoreconf
-	unshift(@ARGV, "--with=autoreconf");
-	# Enable systemd support by default in compat 10 or later.
-	# - compat 11 injects the dh_installsystemd tool directly in the
-	#   sequence instead of using a --with sequence.
-	unshift(@ARGV, "--with=systemd") if compat(10, 1);
-	unshift(@ARGV, "--with=build-stamp");
-}
-
-push(@{$dh{WITH}},split(",", $ENV{DH_EXTRA_ADDONS})) if $ENV{DH_EXTRA_ADDONS};
+my (@addons, @addon_requests);
 
 inhibit_log();
-		
+
 init(options => {
 		"until=s" => \$dh{UNTIL},
 		"after=s" => \$dh{AFTER},
 		"before=s" => \$dh{BEFORE},
 		"remaining" => \$dh{REMAINING},
 		"with=s" => sub {
-			my ($option,$value)=@_;
-			push @{$dh{WITH}},split(",", $value);
+			my ($option, $value) = @_;
+			push(@addon_requests, map { "+${_}" } split(",", $value));
 		},
 		"without=s" => sub {
-			my ($option,$value)=@_;
-			my %without = map { $_ => 1 } split(",", $value);
-			@{$dh{WITH}} = grep { ! $without{$_} } @{$dh{WITH}};
+			my ($option, $value) = @_;
+			push(@addon_requests, map { "-${_}" } split(",", $value));
 		},
 		"l" => \&list_addons,
 		"list" => \&list_addons,
 	},
-	# Disable complaints about unknown options; they are passed on to 
+	# Disable complaints about unknown options; they are passed on to
 	# the debhelper commands.
 	ignore_unknown_options => 1,
 	# Bundling does not work well since there are unknown options.
@@ -405,6 +405,7 @@ my @i = (qw{
 	dh_installinit
 },
    (!compat(10) ? qw(dh_installsystemd) : qw()),
+   (!compat(11) ? qw(dh_installsystemduser) : qw()),
 
 qw{
 	dh_installmenu
@@ -416,6 +417,9 @@ qw{
 	dh_installppp
 	dh_installudev
 	dh_installgsettings
+},
+   (!compat(11) ? qw(dh_installinitramfs) : qw()),
+qw{
 	dh_bugfiles
 	dh_ucf
 	dh_lintian
@@ -432,11 +436,13 @@ qw{
 	dh_fixperms
 	dh_missing
 });
-my @ba=qw{
+my @ba=(
+	(!compat(11) ? qw(dh_dwz) : qw()),
+qw{
 	dh_strip
 	dh_makeshlibs
 	dh_shlibdeps
-};
+});
 if (! getpackages("arch")) {
 	@ba=();
 }
@@ -494,7 +500,7 @@ sub remove_command {
 	foreach my $sequence (keys %sequences) {
 		$sequences{$sequence}=[grep { $_ ne $command } @{$sequences{$sequence}}];
 	}
-	
+
 }
 sub add_command {
 	my ($command, $sequence) = @_;
@@ -548,8 +554,60 @@ sub list_addons {
 	exit 0;
 }
 
+sub _compute_addons {
+	my (@addon_requests_from_args) = @_;
+	my (@enabled_addons, %disabled_addons, %enabled);
+	my @addon_requests;
+
+	# Order is important; DH_EXTRA_ADDONS must come before everything
+	# else; then comes built-in and finally argument provided add-ons
+	# requests.
+	push(@addon_requests,  map { "+${_}" } split(",", $ENV{DH_EXTRA_ADDONS}))
+		if $ENV{DH_EXTRA_ADDONS};
+	if (not compat(9, 1)) {
+		# Enable autoreconf'ing by default in compat 10 or later.
+		push(@addon_requests, '+autoreconf');
+
+		# Enable systemd support by default in compat 10 or later.
+		# - compat 11 injects the dh_installsystemd tool directly in the
+		#   sequence instead of using a --with sequence.
+		push(@addon_requests, '+systemd') if compat(10, 1);
+		push(@addon_requests, '+build-stamp');
+	}
+	push(@addon_requests, map { "+${_}" } Debian::Debhelper::Dh_Lib::bd_dh_sequences());
+	push(@addon_requests, @addon_requests_from_args);
+
+	# Removing disabled add-ons are expensive (O(N) per time), so we
+	# attempt to make removals in bulk.  Note that we have to be order
+	# preserving (due to #885580), so there is a limit to how "smart"
+	# we can be.
+	my $flush_disable_cache = sub {
+		@enabled_addons = grep { not exists($disabled_addons{$_}) } @enabled_addons;
+		for my $addon (keys(%disabled_addons)) {
+			delete($enabled{$addon});
+		}
+		%disabled_addons = ();
+	};
+
+	for my $request (@addon_requests) {
+		if ($request =~ s/^[+]//) {
+			$flush_disable_cache->() if %disabled_addons;
+			push(@enabled_addons, $request) if not $enabled{$request}++;
+		} elsif ($request =~ s/^-//) {
+			$disabled_addons{$request} = 1;
+		} else {
+			error("Internal error: Invalid add-on request: $request (Missing +/- prefix)");
+		}
+	}
+
+	$flush_disable_cache->() if %disabled_addons;
+	return @enabled_addons;
+}
+
+@addons = _compute_addons(@addon_requests);
+
 # Load addons, which can modify sequences.
-foreach my $addon (@{$dh{WITH}}) {
+foreach my $addon (@addons) {
 	my $mod="Debian::Debhelper::Sequence::$addon";
 	$mod=~s/-/_/g;
 	eval "use $mod";
@@ -586,9 +644,9 @@ my %completed_sequences;
 
 # Get the options to pass to commands in the sequence.
 # Filter out options intended only for this program.
-my @options;
-my $user_specified_options=0;
-my $build_system_options = 0;
+my (@options, %seen_options);
+my ($unoptimizable_user_option, $long_options_seen) = (0, 0);
+
 if ($sequence eq 'build-arch' ||
     $sequence eq 'install-arch' ||
     $sequence eq 'binary-arch') {
@@ -614,6 +672,7 @@ while (@ARGV_orig) {
 		next;
 	}
 	elsif ($opt=~/^-/) {
+		my $optname = $opt;
 		if (not @options and $opt eq '--parallel' or $opt eq '--no-parallel') {
 			my $max_parallel;
 			# Ignore the option if it is the default for the given
@@ -627,17 +686,21 @@ while (@ARGV_orig) {
 			$max_parallel = get_buildoption('parallel') // 1;
 			next if $max_parallel == 1;
 		}
+		if ($opt =~ m/^(--[^=]++)(?:=.*)?$/ or $opt =~ m/^(-[^-])$/) {
+			my $optname = $1;
+			$long_options_seen = 1 if length($optname) > 2;
+			$seen_options{$optname} = 1;
+		} else {
+			$unoptimizable_user_option = 1;
+		}
 		push @options, "-O".$opt;
-		$build_system_options = 1 if $opt ne '--no-parallel' and $opt ne '--parallel';
-		$user_specified_options=1
-			unless $opt =~ /^--((?:no-)?parallel|buildsystem|sourcedirectory|builddirectory|)/;
 	}
 	elsif (@options) {
-		$user_specified_options=1;
 		if ($options[$#options]=~/^-O--/) {
 			$options[$#options].="=".$opt;
 		}
 		else {
+			$unoptimizable_user_option = 1;
 			$options[$#options].=$opt;
 		}
 	}
@@ -802,7 +865,7 @@ foreach my $i (0..$stoppoint) {
 		close($fd) or error("close($stamp_file) failed: $!");
 		next;
 	}
-	
+
 	# Check for override targets in debian/rules, and run instead of
 	# the usual command. (The non-arch-specific override is tried first,
 	# for simplest semantics; mixing it with arch-specific overrides
@@ -813,20 +876,7 @@ foreach my $i (0..$stoppoint) {
 	}
 	next unless @todo;
 
-	if (can_skip($command, @todo) && ! $dh{NO_ACT}) {
-		# This mkdir is to avoid skipping the command causing
-		# breakage if some later command assumed that the
-		# command ran, and created the tmpdir, as a side effect.
-		# No commands in debhelper should make such an assuption,
-		# but there may be third party commands or other things
-		# in the rules file that does.
-		if (! compat(10)) {
-			foreach my $package (@todo) {
-				mkdir(tmpdir($package));
-			}
-		}
-		next;
-	}
+	next if can_skip($command, @todo);
 
 	# No need to run the command for any packages handled by the
 	# override targets.
@@ -983,7 +1033,9 @@ my %skipinfo;
 sub can_skip {
 	my ($command, @packages) = @_;
 
-	return 0 if $user_specified_options ||
+	return 0 if $dh{NO_ACT} and not $ENV{DH_INTERNAL_TEST_CAN_SKIP};
+
+	return 0 if $unoptimizable_user_option ||
 		(exists $ENV{DH_OPTIONS} && length $ENV{DH_OPTIONS});
 
 	return 0 if exists($command_opts{$command})
@@ -995,7 +1047,7 @@ sub can_skip {
 	my @skipinfo=@{$skipinfo{$command}};
 	return 0 unless @skipinfo;
 	return 1 if scalar(@skipinfo) == 1 and $skipinfo[0] eq 'always-skip';
-	my $all_pkgs;
+	my ($all_pkgs, $had_cli_options);
 
 	foreach my $skipinfo (@skipinfo) {
 		if ($skipinfo=~/^([a-zA-Z0-9-_]+)\((.*)\)$/) {
@@ -1010,16 +1062,28 @@ sub can_skip {
 				my $pkgs;
 				if ($type eq 'pkgfile') {
 					$pkgs = \@packages;
-				} else {
-					$all_pkgs //= [getpackages()];
+				}
+				else {
+					$all_pkgs //= [ getpackages() ];
 					$pkgs = $all_pkgs;
 				}
 				# Use the secret bulk check call
 				return 0 if pkgfile($pkgs, $need) ne '';
+			} elsif ($type eq 'cli-options') {
+				$had_cli_options = 1;
+				# If cli-options is empty, we no the helper does not
+				# react to any thing and can always be skipped.
+				next if $need =~ m/^\s*$/;
+				# Long options are subject to abbreviations so it is
+				# very difficult to implement this optimization with
+				# long options.
+				return 0 if $long_options_seen;
+				$need =~ s/(?:^|\s)BUILDSYSTEM(?:\s|$)/${\UNSKIPPABLE_CLI_OPTIONS_BUILD_SYSTEM}/;
+				my @behavior_options = split(qr/\Q|\E/, $need);
+				for my $opt (@behavior_options) {
+					return 0 if exists($seen_options{$opt});
+				}
 			} elsif ($type eq 'buildsystem') {
-				# If there are any buildsystem options, we assume that
-				# the build needs a buildsystem.
-				return 0 if $build_system_options;
 				require Debian::Debhelper::Dh_Buildsystems;
 				my $system = Debian::Debhelper::Dh_Buildsystems::load_buildsystem(undef, $need);
 				return 0 if defined($system);
@@ -1032,6 +1096,7 @@ sub can_skip {
 			return 0 if pkgfile(\@packages, $skipinfo) ne '';
 		}
 	}
+	return 0 if not $had_cli_options and %seen_options;
 	return 1;
 }
 

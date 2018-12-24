@@ -92,6 +92,7 @@ sub getoptions {
 	if (! exists $params{bundling} || $params{bundling}) {
 		Getopt::Long::config("bundling");
 	}
+	Getopt::Long::config('no_ignore_case');
 
 	my @test;
 	my %options=(	
@@ -107,7 +108,7 @@ sub getoptions {
 		"arch" => \&AddPackage,
 	
 		"p=s" => \&AddPackage,
-	        "package=s" => \&AddPackage,
+		"package=s" => \&AddPackage,
 		
 		"N=s" => \&ExcludePackage,
 		"no-package=s" => \&ExcludePackage,
@@ -131,9 +132,6 @@ sub getoptions {
 		
 		"d" => \$dh{D_FLAG},
 	
-		"k" => \$dh{K_FLAG},
-		"keep" => \$dh{K_FLAG},
-
 		"P=s" => \$dh{TMPDIR},
 		"tmpdir=s" => \$dh{TMPDIR},
 
@@ -144,8 +142,6 @@ sub getoptions {
 		"A" => \$dh{PARAMS_ALL},
 		"all" => \$dh{PARAMS_ALL},
 	
-		"priority=s" => \$dh{PRIORITY},
-		
 		"h|help" => \&showhelp,
 
 		"mainpackage=s" => \$dh{MAINPACKAGE},

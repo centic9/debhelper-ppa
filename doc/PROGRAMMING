@@ -114,7 +114,6 @@ switch		variable	description
 				only be used inside complex_doit(), not in
 				doit().
 -d		D_FLAG		you decide what this means to your program
--k		K_FLAG		used to turn on keeping of something
 -P		TMPDIR		package build directory (implies only one
 				package is being acted on)
 -u		U_PARAMS	will be set to a string, that is typically
@@ -129,7 +128,6 @@ switch		variable	description
 				those processed here), will apply to all 
 				binary packages the program acts on, not just
 				the first
---priority	PRIORITY	will be set to a number
 --mainpackage	MAINPACKAGE	controls which package is treated as the
 				main package to act on
 --name		NAME		a name to use for installed files, instead of
@@ -186,7 +184,7 @@ print_and_doit([$options, ]@command)
 complex_doit($command)
 	Pass this function a string that is a shell command, it will run it
 	similarly to how doit() does. You can pass more complicated commands 
-	to this (ie, commands involving piping redirection), however, you 
+	to this (i.e. commands involving piping redirection), however, you
 	have to worry about things like escaping shell metacharacters.
 verbose_print($message)
 	Pass this command a string, and it will echo it if $dh{VERBOSE} is set.
@@ -232,7 +230,7 @@ pkgfile($package, $basename)
 	# PROMISE: DH NOOP WITHOUT pkgfilea pkgfile-logged(pkgfileb) tmp(need/this)
 
 	The "pkgfile-logged" hint notifies dh that the helper logs these files
-	via "log_intalled_files".  This means dh will sometimes need to run it
+	via "log_installed_files".  This means dh will sometimes need to run it
 	even when it is a NO OP because it has to log what it would have
 	installed to avoid dh_missing complaining about missing files.
 
@@ -279,7 +277,7 @@ addsubstvar($package, $substvar, $deppackage, $verinfo, $remove)
 	- binary package that gets the item
 	- name of the substvar to add the item to
 	- the package that will be depended on
-	- version info for the package (optional) (ie: ">= 1.1")
+	- version info for the package (optional) (i.e. ">= 1.1")
 	- if this last parameter is passed, the thing that would be added
 	  is removed instead. This can be useful to ensure that a debhelper
 	  command is idempotent. (However, we generally don't bother,
@@ -340,7 +338,7 @@ install_dh_config_file($src, $dest[, $mode])
 install_dir($dir)
 	Create the directory denoted by the path $dir and all parent
 	entries as well (as needed).
-        If the directory already exists, the function does not.
+        If the directory already exists, the function does nothing.
 install_file($src, $dest)
 	Installs $src into $dest with mode 0644.  The parent dir of
 	$dest must exist (can be created with install_dir).
@@ -361,8 +359,7 @@ reset_perm_and_owner($mode, $path...)
 	The file owner and group is set to "root:root".  The change
 	is only done on the exact paths listed (i.e. it is *not*
 	recursive).
-	To avoid issue, please pass mode as a string (i.e. '0755'
-	rather than 0755).
+	Mode should be passed as an integer (not a string).
 open_gz($file)
 	Open $file, read from it as a gzip-compressed file and return
 	the file handle.
@@ -382,7 +379,7 @@ log_installed_files($package, @paths)
 	processing of $package, which installed the files listed in
 	@paths. This logfile will later be used by the dh_missing helper.
 	Paths should be relative to the package root (i.e. the directory
-	containing "debian/") and should not have superflouos segments
+	containing "debian/") and should not have superfluous segments
 	(e.g. avoid "foo/../bar" or "foo/./bar")
 	If a directory is listed, it and all paths recursively beneath is
 	also considered installed.
@@ -475,8 +472,9 @@ Dh_Lib-based helpers:
  * Replace "@{$dh{DOPACKAGES}}" with "getpackages()" and use
    "process_pkg($package)" to determine if the helper should actually
    install anything.
- * Call "log_installed_files" once per package (even once that are not to
-   be acted on) with a list of source files that would be installed.
+ * Call "log_installed_files" once per package (even on the ones that
+   are not to be acted on) with a list of source files that would be
+   installed.
    - You can list entire directories even if there are files under
      it that are ignored.
    - Please call "log_installed_files" /even if/ the list is empty for that

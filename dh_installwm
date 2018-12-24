@@ -49,6 +49,11 @@ calculating the correct value.
 
 Do not modify F<postinst>/F<prerm> scripts. Turns this command into a no-op.
 
+=item B<-A>, B<--all>
+
+Modify scripts for window managers specified by command line
+parameters in ALL packages acted on, not just the first.
+
 =item I<wm> ...
 
 Window manager programs to register.
@@ -63,7 +68,9 @@ instances of the same text to be added to maintainer scripts.
 
 =cut
 
-init();
+init(options => {
+	"priority=s" => \$dh{PRIORITY},
+});
 
 if (! defined $dh{PRIORITY}) {
         $dh{PRIORITY}=20;
@@ -79,7 +86,7 @@ if (@ARGV) {
 
 my $nodocs = is_build_profile_active('nodoc') || get_buildoption('nodoc') ? 1 : 0;
 
-# PROMISE: DH NOOP WITHOUT wm
+# PROMISE: DH NOOP WITHOUT wm cli-options()
 
 foreach my $package (@{$dh{DOPACKAGES}}) {
 	my $tmp=tmpdir($package);

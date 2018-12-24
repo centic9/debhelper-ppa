@@ -2,7 +2,7 @@
 
 =head1 NAME
 
-dh_gconf - install GConf defaults files and register schemas
+dh_gconf - install GConf defaults files and register schemas (deprecated)
 
 =cut
 
@@ -54,14 +54,18 @@ packages (B<90>).
 
 =cut
 
-init();
+init(options => {
+	"priority=s" => \$dh{PRIORITY},
+});
+
+warning("Please migrate to dh_installgsettings; gconf + dh_gconf is scheduled for removal.");
 
 my $priority=10;
 if (defined $dh{PRIORITY}) {
 	$priority=$dh{PRIORITY};
 }
 
-# PROMISE: DH NOOP WITHOUT gconf-mandatory gconf-defaults tmp(etc/gconf/schemas) tmp(usr/share/gconf/schemas)
+# PROMISE: DH NOOP WITHOUT gconf-mandatory gconf-defaults tmp(etc/gconf/schemas) tmp(usr/share/gconf/schemas) cli-options()
 
 foreach my $package (@{$dh{DOPACKAGES}}) {
 	my $tmp=tmpdir($package);

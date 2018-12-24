@@ -30,8 +30,8 @@ package contains a tutorial about making your first package using debhelper.
 
 Except where tool explicitly denotes otherwise, all of the debhelper
 tools assumes that they run from root directory of an unpacked source
-package.  This is so they can locate find F<debian/control> and
-F<debian/compat> when needed.
+package.  This is so they can locate find files like F<debian/control>
+when needed.
 
 =head1 DEBHELPER COMMANDS
 
@@ -78,7 +78,11 @@ complicated formats.
 
 Note for the first (or only) binary package listed in
 F<debian/control>, debhelper will use F<debian/foo> when there's no
-F<debian/package.foo> file.
+F<debian/I<package>.foo> file.  However, it is often a good idea to keep
+the F<I<package>.> prefix as it is more explicit.  The primary exception
+to this are files that debhelper by default installs in every binary
+package when it does not have a package prefix (such as
+F<debian/copyright> or F<debian/changelog>).
 
 In some rare cases, you may want to have different versions of these files
 for different architectures or OSes. If files named debian/I<package>.foo.I<ARCH>
@@ -95,10 +99,41 @@ You can also put comments in these files; lines beginning with B<#> are
 ignored.
 
 The syntax of these files is intentionally kept very simple to make them
-easy to read, understand, and modify. If you prefer power and complexity,
-you can make the file executable, and write a program that outputs
-whatever content is appropriate for a given situation. When you do so,
-the output is not further processed to expand wildcards or strip comments.
+easy to read, understand, and modify.
+
+=head2 Executable debhelper config files
+
+If you need additional flexibility, many of the debhelper tools
+(e.g. L<dh_install(1)>) support executing a config file as a script.
+
+To use this feature, simply mark the config file as executable
+(e.g. B<< chmod +x debian/I<package>.install >>) and the tool will
+attempt to execute it and use the output of the script.  In many
+cases, you can use L<dh-exec(1)> as interpreter of the config file to
+retain most of the original syntax while getting the additional
+flexibility you need.
+
+
+When using executable debhelper config files, please be aware of the
+following:
+
+=over 4
+
+=item *
+
+The executable config file B<must> exit with success (i.e. its return
+code should indicate success).
+
+=item *
+
+The output will be used exactly as it is.  Notably, debhelper will
+I<not> expand wildcards or strip comments in the output.
+
+=back
+
+If you need the package to build on a file system where you cannot
+disable the executable bit, then you can use L<dh-exec(1)> and its
+B<strip-output> script.
 
 =head1 SHARED DEBHELPER OPTIONS
 
@@ -193,7 +228,7 @@ Do not modify F<postinst>, F<postrm>, etc. scripts.
 =item B<-X>I<item>, B<--exclude=>I<item>
 
 Exclude an item from processing. This option may be used multiple times,
-to exclude more than one thing. The \fIitem\fR is typically part of a
+to exclude more than one thing. The I<item> is typically part of a
 filename, and any file containing the specified text will be excluded.
 
 =item B<-A>, B<--all>
@@ -282,19 +317,36 @@ to debhelper, to keep it clean and well-designed as needs change and its
 author gains more experience. To prevent such major changes from breaking
 existing packages, the concept of debhelper compatibility levels was 
 introduced. You must tell debhelper which compatibility level it should use, and
-it modifies its behavior in various ways.  The compatibility level is
-specified in the F<debian/compat> file and the file must be present.
+it modifies its behavior in various ways.
 
-Tell debhelper what compatibility level to use by writing a number to
-F<debian/compat>. For example, to use v#RECOMMENDED_COMPAT# mode:
+In current debhelper, you can specify the compatibility level in
+F<debian/control> by adding a Build-Depends on the debhelper-compat package.
+For example, to use v#RECOMMENDED_COMPAT# mode, ensure F<debian/control> has:
 
-  % echo #RECOMMENDED_COMPAT# > debian/compat
+  Build-Depends: debhelper-compat (= #RECOMMENDED_COMPAT#)
 
-Your package will also need a versioned build dependency on a version of
-debhelper equal to (or greater than) the compatibility level your package
-uses. So for compatibility level #RECOMMENDED_COMPAT#, ensure debian/control has:
+This also serves as an appropriate versioned build dependency on a sufficient
+version of the debhelper package, so you do not need to specify a separate
+versioned build dependency on the debhelper package unless you need a specific
+point release of debhelper (such as for the introduction of a new feature or
+bugfix within a compatibility level).
 
-  Build-Depends: debhelper (>= #RECOMMENDED_COMPAT#)
+Note that debhelper does not provide debhelper-compat for experimental or beta
+compatibility levels; packages experimenting with those compatibility levels
+should use F<debian/compat> or B<DH_COMPAT>.
+
+Prior versions of debhelper required specifying the compatibility level in the
+file F<debian/compat>, and current debhelper still supports this for backward
+compatibility, though a package may not specify a compatibility level via
+multiple methods at once. To use this method, F<debian/compat> should contain
+the compatibility level as a single number, and no other content. If you
+specify the compatibility level by this method, your package will also need a
+versioned build dependency on a version of the debhelper package equal to (or
+greater than) the compatibility level your package uses. So, if you specify
+compatibility level #RECOMMENDED_COMPAT# in F<debian/compat>, ensure
+F<debian/control> has:
+
+  Build-Depends: debhelper (>= #RECOMMENDED_COMPAT#~)
 
 Unless otherwise indicated, all debhelper documentation assumes that you
 are using the most recent compatibility level, and in most cases does not
@@ -489,13 +541,6 @@ breaks binNMUs.
 
 =item -
 
-B<dh> no longer creates the package build directory when skipping
-running debhelper commands. This will not affect packages that only build
-with debhelper commands, but it may expose bugs in commands not included in
-debhelper.
-
-=item -
-
 B<dh_installdeb> no longer installs a maintainer-provided
 debian/I<package>.shlibs file.  This is now done by B<dh_makeshlibs>
 instead.
@@ -581,11 +626,21 @@ The B<systemd> sequence is now enabled by default.  Please pass
 B<--without systemd> to B<dh> if this is not desirable for a given
 package.
 
+=item -
+
+B<Retroactively removed>: B<dh> no longer creates the package build
+directory when skipping running debhelper commands. This will not
+affect packages that only build with debhelper commands, but it may
+expose bugs in commands not included in debhelper.
+
+This compatibility feature had a bug since its inception in
+debhelper/9.20130516 that made it fail to apply in compat 9 and
+earlier.  As there has been no reports of issues caused by this bug in
+those ~5 years, this item have been removed rather than fixed.
+
 =back
 
 =item v11
-
-This is the recommended mode of operation.
 
 Changes from v10 are:
 
@@ -619,8 +674,8 @@ The vast majority of all packages will be unaffected by this change.
 
 =item -
 
-The B<makefile> buildsystem now passes B<INSTALL=install
---strip-program=true> to L<make(1)>.  Derivative buildsystems
+The B<makefile> buildsystem now passes B<INSTALL="install
+--strip-program=true"> to L<make(1)>.  Derivative buildsystems
 (e.g. B<configure> or B<cmake>) are unaffected by this change.
 
 =item -
@@ -692,16 +747,31 @@ returns a non-zero exit from analysing a given file.
 
 =item -
 
-The B<dh_installdocs> and B<dh_installexamples> tools will now attempt
-to guess the "main package" for a given documentation package
-(e.g. I<pkg-doc> will have I<pkg> as main package if the latter
-exists).  If a main package is found, I<most> of the documentation
-will be installed into F<< /usr/share/doc/I<main-pkg> >> by default as
-recommended by Debian policy §12.3 since version 3.9.7.  Notable
-exceptions include the copyright file and changelog files.
+The B<dh_installdocs> and B<dh_installexamples> tools may now install
+I<most> of the documentation in a different path to comply with the
+recommendation from Debian policy §12.3 (since version 3.9.7).
+
+Note that if a given source package only contains a single binary
+package in F<debian/control> or none of the packages are I<-doc>
+packages, then this change is not relevant for that source package and
+you can skip to the next change.
+
+By default, these tools will now attempt to determine a "main package
+for the documentation" (called a I<doc-main-package> from here on) for
+every I<-doc> package.  If they find such a I<doc-main-package>, they
+will now install the documentation into the path F<<
+/usr/share/doc/I<doc-main-package> >> in the given doc package.
+I.e. the path can change but the documentation is still shipped in the
+I<-doc> package.
 
 The B<--doc-main-package> option can be used when the auto-detection
-is insufficient.
+is insufficient or to reset the path to its previous value if there is
+a reason to diverge from Debian policy recommendation.
+
+Some documentation will not be affected by this change.  These
+exceptions include the copyright file, changelog files, README.Debian,
+etc.  These files will still be installed in the path F<<
+/usr/share/doc/I<package> >>.
 
 =item -
 
@@ -716,11 +786,21 @@ This change may cause the tools to process more files than previously.
 
 =item v12
 
-This compatibility level is still open for development; use with caution.
+This is the recommended mode of operation.
 
 Changes from v11 are:
 
 =over 8
+
+=item -
+
+The B<dh_makeshlibs> tool now generates shlibs files with versioned
+dependency by default.  This means that B<-VUpstream-Version>
+(a.k.a. B<-V>) is now the default.
+
+If an unversioned dependency in the shlibs file is wanted, this can be
+obtained by passing B<-VNone> instead.  However, please see
+L<dh_makeshlibs(1)> for the caveat of unversioned dependencies.
 
 =item -
 
@@ -776,6 +856,90 @@ if the ELF binary has a SONAME (containing ".so").
 
 The B<dh_compress> tool no longer compresses examples (i.e. anything installed
 in F<</usr/share/doc/I<package>/examples>>.)
+
+=item -
+
+The standard sequence in B<dh> now includes B<dh_dwz> and
+B<dh_installinitramfs> by default.  This makes the B<dwz> and
+B<installinitramfs> sequences obsolete and they will now fail with an
+error.  If you want to skip these commands, then please insert an
+empty override target for them in F<debian/rules>
+(e.g. I<override_dh_dwz:>)
+
+=item -
+
+The build systems B<meson> and B<autoconf> no longer explicitly set
+the B<--libexecdir> variable and thus relies on the build system
+default - which should be B</usr/libexec> (per FHS 3.0, adopted in
+Debian Policy 4.1.5).
+
+If a particular upstream package does not use the correct default, the
+parameter can often be passed manually via L<dh_auto_configure(1)>.  E.g.
+via the following example:
+
+    override_dh_auto_configure:
+    	dh_auto_configure -- --libexecdir=/usr/libexec
+
+Note the B<--> before the B<--libexecdir> parameter.
+
+=item -
+
+The B<dh_installdeb> tool no longer installs the maintainer provided
+F<conffiles> file.  The file has mostly been obsolete since
+compatibility level 3, where B<dh_installdeb> began to automatically
+compute the resulting F<conffiles> control file.
+
+=item -
+
+The B<dh_installsystemd> tool no longer relies on B<dh_installinit> for
+handling systemd services that have a sysvinit alternative.  Both tools
+must now be used in such a case to ensure the service is properly started
+under both sysvinit and systemd.
+
+If you have an override for B<dh_installinit> (e.g. to call it with
+B<--no-start>) then you will probably need one for
+B<dh_installsystemd> as well now.
+
+This change makes B<dh_installinit> inject a I<misc:Pre-Depends> for
+B<< init-system-helpers (>= 1.54~) >>.  Please ensure that the package
+lists B<${misc:Pre-Depends}> in its B<Pre-Depends> field before
+upgrading to compat 12.
+
+=item -
+
+The third-party B<dh_golang> tool (from B<dh-golang> package) now defaults on
+honoring B<DH_GOLANG_EXCLUDES> variable for source installation in -dev
+packages and not only during the building process. Please set
+B<DH_GOLANG_EXCLUDES_ALL> to false to revert to the previous behaviour. See
+B<Debian::Debhelper::Buildsystem::golang(3pm)> for details and examples.
+
+=item -
+
+B<dh_installsystemduser> is now included in the B<dh> standard
+sequence by default.
+
+=item -
+
+The B<python-distutils> buildsystem is now removed.  Please use the
+third-party build system B<pybuild> instead.
+
+=back
+
+=item v13
+
+This compatibility level is still open for development; use with caution.
+
+Changes from v12 are:
+
+=over 8
+
+=item -
+
+The B<meson+ninja> build system now uses B<meson test> instead of
+B<ninja test> when running the test suite.  Any override of
+B<dh_auto_test> that passes extra parameters to upstream test runner
+should be reviewed as B<meson test> is not command line compatible
+with B<ninja test>.
 
 =back
 
@@ -942,7 +1106,8 @@ Ignored if DH_VERBOSE is also set.
 =item B<DH_COMPAT>
 
 Temporarily specifies what compatibility level debhelper should run at,
-overriding any value in F<debian/compat>.
+overriding any value specified via Build-Depends on debhelper-compat or via the
+F<debian/compat> file.
 
 =item B<DH_NO_ACT>
 

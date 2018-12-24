@@ -8,14 +8,18 @@ use Test::DH;
 use File::Path qw(remove_tree make_path);
 use Debian::Debhelper::Dh_Lib qw(!dirname);
 
-our @TEST_DH_EXTRA_TEMPLATE_FILES = (qw(
-    debian/changelog
-    debian/control
-    debian/foo.service
-    debian/foo2.service
-));
+plan(tests => 4);
 
-plan(tests => 1);
+sub write_file {
+	my ($path, $content) = @_;
+
+	my $dir = dirname($path);
+	install_dir($dir);
+
+	open(my $fd, '>>', $path) or error("open($path) failed: $!");
+	print {$fd} $content . '\n';
+	close($fd) or error("close($path) failed: $!");
+}
 
 sub unit_is_enabled {
 	my ($package, $unit, $num_enables, $num_masks) = @_;
@@ -34,6 +38,7 @@ sub unit_is_enabled {
 	$matches = grep { m{deb-systemd-helper mask.*'\Q$unit\E\.service'} } @output;
 	ok($matches == $num_masks) or diag("$unit appears to have been masked $matches times (expected $num_masks)");
 }
+
 sub unit_is_started {
 	my ($package, $unit, $num_starts, $num_stops) = @_;
 	my @output;
@@ -49,10 +54,55 @@ sub unit_is_started {
 	ok($matches == $num_stops) or diag("$unit appears to have been stopped $matches times (expected $num_stops)");
 }
 
-# Units are installed and enabled
+
+#
+# Test a simple source package defining a single binary package
+#
+our $TEST_DH_FIXTURE_DIR = 'simple';
+our @TEST_DH_EXTRA_TEMPLATE_FILES = (qw(
+    debian/changelog
+    debian/control
+    debian/foo.service
+));
+
+each_compat_subtest {
+	ok(run_dh_tool('dh_installsystemd'));
+	ok(-e 'debian/foo/lib/systemd/system/foo.service');
+	ok(find_script('foo', 'postinst'));
+	unit_is_enabled('foo', 'foo', 1);
+	unit_is_started('foo', 'foo', 1);
+	ok(run_dh_tool('dh_clean'));
+
+	ok(run_dh_tool('dh_installsystemd', '--no-start'));
+	ok(-e 'debian/foo/lib/systemd/system/foo.service');
+	ok(find_script('foo', 'postinst'));
+	unit_is_enabled('foo', 'foo', 1);
+	unit_is_started('foo', 'foo', 0, 1);
+	ok(run_dh_tool('dh_clean'));
+
+	ok(run_dh_tool('dh_installsystemd', '--no-start', 'foo.service'));
+	ok(-e 'debian/foo/lib/systemd/system/foo.service');
+	ok(find_script('foo', 'postinst'));
+	unit_is_enabled('foo', 'foo', 1);
+	unit_is_started('foo', 'foo', 0, 1);
+	ok(run_dh_tool('dh_clean'));
+};
+
+
+#
+# Test a more complex source package defining three binary packages
+#
+$TEST_DH_FIXTURE_DIR = '.';
+@TEST_DH_EXTRA_TEMPLATE_FILES = (qw(
+    debian/changelog
+    debian/control
+    debian/foo.service
+    debian/foo2.service
+));
+
 each_compat_subtest {
 	ok(run_dh_tool( 'dh_installsystemd'));
-	ok(-e "debian/foo/lib/systemd/system/foo.service");
+	ok(-e 'debian/foo/lib/systemd/system/foo.service');
 	ok(find_script('foo', 'postinst'));
 	unit_is_enabled('foo', 'foo', 1);
 	unit_is_started('foo', 'foo', 1);
@@ -63,7 +113,7 @@ each_compat_subtest {
 	make_path('debian/foo/lib/systemd/system/');
 	install_file('debian/foo2.service', 'debian/foo/lib/systemd/system/foo2.service');
 	ok(run_dh_tool('dh_installsystemd'));
-	ok(-e "debian/foo/lib/systemd/system/foo.service");
+	ok(-e 'debian/foo/lib/systemd/system/foo.service');
 	ok(find_script('foo', 'postinst'));
 	unit_is_enabled('foo', 'foo', 1);
 	unit_is_started('foo', 'foo', 1);
@@ -74,7 +124,7 @@ each_compat_subtest {
 	make_path('debian/foo/lib/systemd/system/');
 	install_file('debian/foo2.service', 'debian/foo/lib/systemd/system/foo2.service');
 	ok(run_dh_tool('dh_installsystemd', '--no-start'));
-	ok(-e "debian/foo/lib/systemd/system/foo.service");
+	ok(-e 'debian/foo/lib/systemd/system/foo.service');
 	ok(find_script('foo', 'postinst'));
 	unit_is_enabled('foo', 'foo', 1);
 	unit_is_started('foo', 'foo', 0, 1); # present units are stopped on remove even if no start
@@ -84,9 +134,9 @@ each_compat_subtest {
 
 	make_path('debian/foo/lib/systemd/system/');
 	install_file('debian/foo2.service', 'debian/foo/lib/systemd/system/foo2.service');
-	ok(run_dh_tool('dh_installsystemd', '--no-start', 'debian/foo.service'));
+	ok(run_dh_tool('dh_installsystemd', '-p', 'foo', '--no-start', 'foo.service'));
 	ok(run_dh_tool('dh_installsystemd', '-p', 'foo', 'foo2.service'));
-	ok(-e "debian/foo/lib/systemd/system/foo.service");
+	ok(-e 'debian/foo/lib/systemd/system/foo.service');
 	ok(find_script('foo', 'postinst'));
 	unit_is_enabled('foo', 'foo', 1);
 	unit_is_started('foo', 'foo', 0, 1);
@@ -96,9 +146,9 @@ each_compat_subtest {
 
 	make_path('debian/foo/lib/systemd/system/');
 	install_file('debian/foo2.service', 'debian/foo/lib/systemd/system/foo2.service');
-	ok(run_dh_tool('dh_installsystemd', '--no-enable', 'debian/foo.service'));
+	ok(run_dh_tool('dh_installsystemd', '-p', 'foo', '--no-enable', 'foo.service'));
 	ok(run_dh_tool('dh_installsystemd', '-p', 'foo', 'foo2.service'));
-	ok(-e "debian/foo/lib/systemd/system/foo.service");
+	ok(-e 'debian/foo/lib/systemd/system/foo.service');
 	ok(find_script('foo', 'postinst'));
 	unit_is_enabled('foo', 'foo', 0, 1); # Disabled units are still masked on removal
 	unit_is_started('foo', 'foo', 1, 1);
@@ -136,6 +186,47 @@ each_compat_subtest {
 	unit_is_enabled('foo', 'foo2', 1);
 	unit_is_started('foo', 'foo2', 1);
 	ok(run_dh_tool('dh_clean'));
+
+	make_path('debian/foo/lib/systemd/system/');
+	install_file('debian/foo.service', 'debian/foo/lib/systemd/system/target.service');
+	make_symlink_raw_target('target.service', 'debian/foo/lib/systemd/system/source.service');
+	ok(run_dh_tool('dh_installsystemd'));
+	unit_is_enabled('foo', 'foo', 1);
+	# Alias= realized by symlinks are not enabled in maintaner scripts
+	unit_is_enabled('foo', 'source', 0);
+	unit_is_enabled('foo', 'target', 1);
+	ok(run_dh_tool('dh_clean'));
 };
 
+each_compat_up_to_and_incl_subtest(11, sub {
+	make_path('debian/foo/lib/systemd/system/');
+	make_path('debian/foo/etc/init.d/');
+	install_file('debian/foo.service', 'debian/foo/lib/systemd/system/target.service');
+	make_symlink_raw_target('target.service', 'debian/foo/lib/systemd/system/source.service');
+	write_file('debian/foo/etc/init.d/source', '# something');
+	ok(run_dh_tool('dh_installsystemd'));
+	unit_is_enabled('foo', 'foo', 1);
+	# Alias= realized by symlinks are not enabled in maintaner scripts
+	unit_is_enabled('foo', 'source', 0);
+	unit_is_enabled('foo', 'target', 1);
+	# The presence of a sysvinit script for the alias unit inhibits start of both
+	unit_is_started('foo', 'source', 0);
+	unit_is_started('foo', 'target', 0);
+	ok(run_dh_tool('dh_clean'));
+});
 
+each_compat_from_and_above_subtest(12, sub {
+	make_path('debian/foo/lib/systemd/system/');
+	make_path('debian/foo/etc/init.d/');
+	install_file('debian/foo.service', 'debian/foo/lib/systemd/system/target.service');
+	make_symlink_raw_target('target.service', 'debian/foo/lib/systemd/system/source.service');
+	write_file('debian/foo/etc/init.d/source', '# something');
+	ok(run_dh_tool('dh_installsystemd'));
+	unit_is_enabled('foo', 'foo', 1);
+	# Alias= realized by symlinks are not enabled in maintaner scripts
+	unit_is_enabled('foo', 'source', 0);
+	unit_is_enabled('foo', 'target', 1);
+	unit_is_started('foo', 'source', 0);
+	unit_is_started('foo', 'target', 1);
+	ok(run_dh_tool('dh_clean'));
+});

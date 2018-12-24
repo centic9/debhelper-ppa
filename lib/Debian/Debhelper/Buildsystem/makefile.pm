@@ -84,9 +84,6 @@ sub do_make {
 	if ($parallel == 0 or $parallel > 1) {
 		# We have to use the empty string for "unlimited"
 		$parallel = '' if $parallel == 0;
-		# -O is for synchronizing the output; only if STDOUT
-		# is not a TTY
-		unshift(@_, '-O') if not -t STDOUT;
 		unshift(@_, "-j${parallel}");
 	} else {
 		unshift(@_, '-j1');
@@ -134,9 +131,8 @@ sub check_auto_buildable {
 		# This is always called in the source directory, but generally
 		# Makefiles are created (or live) in the build directory.
 		return 1;
-	} elsif ($step eq "clean" && defined $this->get_builddir() &&
-	         $this->check_auto_buildable("configure"))
-	{
+	} elsif ($this->check_auto_buildable_clean_oos_buildir(@_)
+			 and $this->check_auto_buildable('configure')) {
 		# Assume that the package can be cleaned (i.e. the build directory can
 		# be removed) as long as it is built out-of-source tree and can be
 		# configured. This is useful for derivative buildsystems which

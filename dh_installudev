@@ -55,7 +55,9 @@ instances of the same text to be added to maintainer scripts.
 
 =cut
 
-init();
+init(options => {
+	"priority=s" => \$dh{PRIORITY},
+});
 
 # The priority used to look like z60_;
 # we need to calculate that old value to handle
@@ -76,7 +78,7 @@ if ($dh{PRIORITY}) {
 	$old_priority.="_";
 }
 
-# PROMISE: DH NOOP WITHOUT udev
+# PROMISE: DH NOOP WITHOUT udev cli-options()
 
 foreach my $package (@{$dh{DOPACKAGES}}) {
 	my $tmp=tmpdir($package);
