@@ -21,20 +21,7 @@ B<dh_installchangelogs> [S<I<debhelper options>>] [B<-k>] [B<-X>I<item>] [I<upst
 B<dh_installchangelogs> is a debhelper program that is responsible for
 installing changelogs into package build directories.
 
-An upstream F<changelog> file may be specified as an option. If none
-is specified, B<dh_installchangelogs> may look for files with names
-that seem likely to be changelogs as described in the next paragraphs
-(assuming the package is using compatibility level 7 or above).
-
-In non-native packages, B<dh_installchangelogs> will first look for
-changelog files installed by the upstream build system into F<<
-usr/share/doc/I<package> >> (of the package build directory) and
-rename the most likely candidate (if any) to F<<
-usr/share/doc/I<package>/changelog >>.  Note that
-B<dh_installchangelogs> does I<not> look into any source directory
-(such as F<debian/tmp>). Otherwise, B<dh_installchangelogs> (at
-compatibility level 7 or any later) will look for changelog files in
-the source directory (e.g. the root or the F<docs> subdirectory).
+An upstream F<changelog> file may be specified as an option.
 
 If there is an upstream F<changelog> file, it will be installed as
 F<usr/share/doc/package/changelog> in the package build directory.
@@ -159,16 +146,6 @@ my $default_upstream = $ARGV[0];
 my $default_upstream_text=$default_upstream;
 my $default_upstream_html;
 if (! defined($default_upstream)) {
-	if (! isnative($dh{MAINPACKAGE}) && !compat(6)) {
-		foreach my $dir (qw{. doc docs}) {
-			my $changelog = find_changelog($dir);
-			if ($changelog) {
-				$default_upstream = $changelog;
-				$default_upstream_text = $default_upstream;
-				last;
-			}
-		}
-	}
 	if (isnative($dh{MAINPACKAGE})) {
 		$changelog_name='changelog';
 	}
@@ -209,17 +186,6 @@ on_pkgs_in_parallel {
 			$upstream_changelog = $default_upstream;
 			$upstream_changelog_text = $default_upstream_text;
 			$upstream_changelog_html = $default_upstream_html;
-		} else {
-			# Check if the upstream build system provided a
-			# changelog
-			$upstream_changelog = find_changelog("${tmp}/usr/share/doc/${package}");
-			if ($upstream_changelog) {
-				$upstream_changelog_text = $upstream_changelog;
-				$changelog_from_tmp_dir = 1;
-			} else {
-				$upstream_changelog = $default_upstream;
-				$upstream_changelog_text = $upstream_changelog;
-			}
 		}
 
 		if (!$changelog) {

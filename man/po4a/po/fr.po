@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: debhelper manpages\n"
-"POT-Creation-Date: 2018-12-24 13:46+0000\n"
+"POT-Creation-Date: 2018-12-24 14:26-0600\n"
 "PO-Revision-Date: 2017-12-17 17:44+0100\n"
 "Last-Translator: Baptiste Jammet <baptiste@mailoo.org>\n"
 "Language-Team: French <debian-l10n-french@lists.debian.org>\n"
@@ -650,7 +650,7 @@ msgstr ""
 
 # type: =item
 #. type: =item
-#: debhelper.pod:228 dh_compress:56 dh_dwz:44 dh_installchangelogs:85
+#: debhelper.pod:228 dh_compress:56 dh_dwz:44 dh_installchangelogs:72
 #: dh_installdocs:99 dh_installexamples:77 dh_link:75 dh_makeshlibs:139
 #: dh_md5sums:40 dh_shlibdeps:34 dh_strip:42
 msgid "B<-X>I<item>, B<--exclude=>I<item>"
@@ -2711,7 +2711,7 @@ msgstr ""
 #: dh_auto_build:53 dh_auto_clean:55 dh_auto_configure:58 dh_auto_install:97
 #: dh_auto_test:64 dh_bugfiles:133 dh_builddeb:182 dh_clean:186 dh_compress:236
 #: dh_dwz:141 dh_fixperms:162 dh_gconf:105 dh_gencontrol:207 dh_icons:75
-#: dh_install:350 dh_installcatalogs:125 dh_installchangelogs:302
+#: dh_install:350 dh_installcatalogs:125 dh_installchangelogs:268
 #: dh_installcron:78 dh_installdeb:270 dh_installdebconf:128 dh_installdirs:128
 #: dh_installdocs:444 dh_installemacsen:138 dh_installexamples:175
 #: dh_installifupdown:72 dh_installinfo:107 dh_installinit:425
@@ -2756,7 +2756,7 @@ msgstr "Le site internet de debhelper."
 #: dh_auto_configure:64 dh_auto_install:103 dh_auto_test:70 dh_bugfiles:141
 #: dh_builddeb:188 dh_clean:192 dh_compress:242 dh_dwz:147 dh_fixperms:168
 #: dh_gconf:111 dh_gencontrol:213 dh_icons:81 dh_install:356
-#: dh_installcatalogs:131 dh_installchangelogs:308 dh_installcron:84
+#: dh_installcatalogs:131 dh_installchangelogs:274 dh_installcron:84
 #: dh_installdeb:276 dh_installdebconf:134 dh_installdirs:134
 #: dh_installdocs:450 dh_installemacsen:145 dh_installexamples:181
 #: dh_installifupdown:78 dh_installinfo:113 dh_installlogcheck:87
@@ -2774,7 +2774,7 @@ msgstr "AUTEUR"
 #: debhelper.pod:1170 dh:1112 dh_auto_build:61 dh_auto_clean:63
 #: dh_auto_configure:66 dh_auto_install:105 dh_auto_test:72 dh_builddeb:190
 #: dh_clean:194 dh_compress:244 dh_fixperms:170 dh_gencontrol:215
-#: dh_install:358 dh_installchangelogs:310 dh_installcron:86 dh_installdeb:278
+#: dh_install:358 dh_installchangelogs:276 dh_installcron:86 dh_installdeb:278
 #: dh_installdebconf:136 dh_installdirs:136 dh_installdocs:452
 #: dh_installemacsen:147 dh_installexamples:183 dh_installifupdown:80
 #: dh_installinfo:115 dh_installinit:433 dh_installlogrotate:61
@@ -2997,7 +2997,7 @@ msgstr ""
 #: dh_auto_configure:60 dh_auto_install:99 dh_auto_test:66 dh_builddeb:184
 #: dh_clean:188 dh_compress:238 dh_dwz:143 dh_fixperms:164 dh_gconf:107
 #: dh_gencontrol:209 dh_install:352 dh_installcatalogs:127
-#: dh_installchangelogs:304 dh_installcron:80 dh_installdeb:272
+#: dh_installchangelogs:270 dh_installcron:80 dh_installdeb:272
 #: dh_installdebconf:130 dh_installdirs:130 dh_installdocs:446
 #: dh_installexamples:177 dh_installifupdown:74 dh_installinfo:109
 #: dh_installlogcheck:83 dh_installlogrotate:55 dh_installman:364
@@ -3109,7 +3109,7 @@ msgstr ""
 #: dh:48 dh_auto_build:32 dh_auto_clean:33 dh_auto_configure:35
 #: dh_auto_install:46 dh_auto_test:34 dh_bugfiles:53 dh_builddeb:34 dh_clean:47
 #: dh_compress:52 dh_dwz:26 dh_fixperms:40 dh_gconf:42 dh_gencontrol:38
-#: dh_icons:33 dh_install:66 dh_installcatalogs:53 dh_installchangelogs:73
+#: dh_icons:33 dh_install:66 dh_installcatalogs:53 dh_installchangelogs:60
 #: dh_installcron:43 dh_installdebconf:64 dh_installdirs:42 dh_installdocs:90
 #: dh_installemacsen:56 dh_installexamples:41 dh_installifupdown:42
 #: dh_installinfo:38 dh_installinit:78 dh_installinitramfs:43
@@ -3837,7 +3837,7 @@ msgstr ""
 #: dh:1108 dh_auto_build:57 dh_auto_clean:59 dh_auto_configure:62
 #: dh_auto_install:101 dh_auto_test:68 dh_bugfiles:139 dh_builddeb:186
 #: dh_clean:190 dh_compress:240 dh_dwz:145 dh_fixperms:166 dh_gconf:109
-#: dh_gencontrol:211 dh_icons:79 dh_install:354 dh_installchangelogs:306
+#: dh_gencontrol:211 dh_icons:79 dh_install:354 dh_installchangelogs:272
 #: dh_installcron:82 dh_installdeb:274 dh_installdebconf:132 dh_installdirs:132
 #: dh_installdocs:448 dh_installemacsen:143 dh_installexamples:179
 #: dh_installifupdown:76 dh_installinfo:111 dh_installinit:429
@@ -4274,7 +4274,7 @@ msgstr ""
 # type: =head1
 #. type: =head1
 #: dh_bugfiles:25 dh_clean:34 dh_compress:35 dh_gconf:26 dh_install:40
-#: dh_installcatalogs:39 dh_installchangelogs:49 dh_installcron:24
+#: dh_installcatalogs:39 dh_installchangelogs:36 dh_installcron:24
 #: dh_installdeb:25 dh_installdebconf:37 dh_installdirs:28 dh_installdocs:40
 #: dh_installemacsen:30 dh_installexamples:31 dh_installifupdown:25
 #: dh_installinfo:28 dh_installinit:41 dh_installinitramfs:30
@@ -4553,7 +4553,7 @@ msgstr ""
 
 # type: =item
 #. type: =item
-#: dh_clean:51 dh_installchangelogs:77
+#: dh_clean:51 dh_installchangelogs:64
 msgid "B<-k>, B<--keep>"
 msgstr "B<-k>, B<--keep>"
 
@@ -5643,40 +5643,14 @@ msgstr ""
 "l'installation des journaux de suivi des modifications (changelog) dans le "
 "répertoire de construction du paquet."
 
-# type: textblock
 #. type: textblock
 #: dh_installchangelogs:24
-#, fuzzy
-#| msgid ""
-#| "An upstream F<changelog> file may be specified as an option. If none is "
-#| "specified, it looks for files with names that seem likely to be "
-#| "changelogs.  (In compatibility level 7 and above.)"
-msgid ""
-"An upstream F<changelog> file may be specified as an option. If none is "
-"specified, B<dh_installchangelogs> may look for files with names that seem "
-"likely to be changelogs as described in the next paragraphs (assuming the "
-"package is using compatibility level 7 or above)."
-msgstr ""
-"Un journal amont des modifications (upstream F<changelog>) peut être indiqué "
-"en option. Si rien n'est indiqué, le processus cherche des fichiers portant "
-"des noms susceptibles d'être des changelog. (à partir de la version 7)."
-
-#. type: textblock
-#: dh_installchangelogs:29
-msgid ""
-"In non-native packages, B<dh_installchangelogs> will first look for "
-"changelog files installed by the upstream build system into F<< usr/share/"
-"doc/I<package> >> (of the package build directory) and rename the most "
-"likely candidate (if any) to F<< usr/share/doc/I<package>/changelog >>.  "
-"Note that B<dh_installchangelogs> does I<not> look into any source directory "
-"(such as F<debian/tmp>). Otherwise, B<dh_installchangelogs> (at "
-"compatibility level 7 or any later) will look for changelog files in the "
-"source directory (e.g. the root or the F<docs> subdirectory)."
+msgid "An upstream F<changelog> file may be specified as an option."
 msgstr ""
 
 # type: textblock
 #. type: textblock
-#: dh_installchangelogs:39
+#: dh_installchangelogs:26
 msgid ""
 "If there is an upstream F<changelog> file, it will be installed as F<usr/"
 "share/doc/package/changelog> in the package build directory."
@@ -5685,7 +5659,7 @@ msgstr ""
 "doc/paquet/changelog> du répertoire de construction du paquet."
 
 #. type: textblock
-#: dh_installchangelogs:42
+#: dh_installchangelogs:29
 #, fuzzy
 #| msgid ""
 #| "If the upstream changelog is an F<html> file (determined by file "
@@ -5711,31 +5685,31 @@ msgstr ""
 
 # type: =item
 #. type: =item
-#: dh_installchangelogs:53
+#: dh_installchangelogs:40
 msgid "F<debian/changelog>"
 msgstr "F<debian/changelog>"
 
 # type: =item
 #. type: =item
-#: dh_installchangelogs:55
+#: dh_installchangelogs:42
 msgid "F<debian/NEWS>"
 msgstr "F<debian/NEWS>"
 
 # type: =item
 #. type: =item
-#: dh_installchangelogs:57
+#: dh_installchangelogs:44
 msgid "debian/I<package>.changelog"
 msgstr "debian/I<paquet>.changelog"
 
 # type: =item
 #. type: =item
-#: dh_installchangelogs:59
+#: dh_installchangelogs:46
 msgid "debian/I<package>.NEWS"
 msgstr "debian/I<paquet>.NEWS"
 
 # type: textblock
 #. type: textblock
-#: dh_installchangelogs:61
+#: dh_installchangelogs:48
 msgid ""
 "Automatically installed into usr/share/doc/I<package>/ in the package build "
 "directory."
@@ -5745,7 +5719,7 @@ msgstr ""
 
 # type: textblock
 #. type: textblock
-#: dh_installchangelogs:64
+#: dh_installchangelogs:51
 msgid ""
 "Use the package specific name if I<package> needs a different F<NEWS> or "
 "F<changelog> file."
@@ -5755,7 +5729,7 @@ msgstr ""
 
 # type: textblock
 #. type: textblock
-#: dh_installchangelogs:67
+#: dh_installchangelogs:54
 msgid ""
 "The F<changelog> file is installed with a name of changelog for native "
 "packages, and F<changelog.Debian> for non-native packages.  The F<NEWS> file "
@@ -5767,7 +5741,7 @@ msgstr ""
 
 # type: textblock
 #. type: textblock
-#: dh_installchangelogs:79
+#: dh_installchangelogs:66
 msgid ""
 "Keep the original name of the upstream changelog. This will be accomplished "
 "by installing the upstream changelog as F<changelog>, and making a symlink "
@@ -5783,7 +5757,7 @@ msgstr ""
 
 # type: textblock
 #. type: textblock
-#: dh_installchangelogs:87
+#: dh_installchangelogs:74
 msgid ""
 "Exclude upstream F<changelog> files that contain I<item> anywhere in their "
 "filename from being installed."
@@ -5792,19 +5766,19 @@ msgstr ""
 "où dans leur nom."
 
 #. type: textblock
-#: dh_installchangelogs:90
+#: dh_installchangelogs:77
 msgid "Note that directory name of the changelog is also part of the match."
 msgstr ""
 
 # type: =item
 #. type: =item
-#: dh_installchangelogs:92
+#: dh_installchangelogs:79
 msgid "I<upstream>"
 msgstr "I<journal-amont>"
 
 # type: textblock
 #. type: textblock
-#: dh_installchangelogs:94
+#: dh_installchangelogs:81
 msgid "Install this file as the upstream changelog."
 msgstr ""
 "Installe ce fichier en tant que journal amont de suivi des modifications."
@@ -11101,6 +11075,23 @@ msgid "This compatibility level is open for beta testing; changes may occur."
 msgstr ""
 "Ce niveau de compatibilité est en phase de test ; des changements peuvent "
 "encore survenir."
+
+# type: textblock
+#, fuzzy
+#~| msgid ""
+#~| "An upstream F<changelog> file may be specified as an option. If none is "
+#~| "specified, it looks for files with names that seem likely to be "
+#~| "changelogs.  (In compatibility level 7 and above.)"
+#~ msgid ""
+#~ "An upstream F<changelog> file may be specified as an option. If none is "
+#~ "specified, B<dh_installchangelogs> may look for files with names that "
+#~ "seem likely to be changelogs as described in the next paragraphs "
+#~ "(assuming the package is using compatibility level 7 or above)."
+#~ msgstr ""
+#~ "Un journal amont des modifications (upstream F<changelog>) peut être "
+#~ "indiqué en option. Si rien n'est indiqué, le processus cherche des "
+#~ "fichiers portant des noms susceptibles d'être des changelog. (à partir de "
+#~ "la version 7)."
 
 # type: verbatim
 #~ msgid ""

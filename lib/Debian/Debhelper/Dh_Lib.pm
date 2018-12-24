@@ -32,7 +32,7 @@ use constant {
 	# Package-Type / extension for dbgsym packages
 	# TODO: Find a way to determine this automatically from the vendor
 	#  - blocked by Dpkg::Vendor having a rather high load time (for debhelper)
-	'DBGSYM_PACKAGE_TYPE' => DEFAULT_PACKAGE_TYPE,
+	'DBGSYM_PACKAGE_TYPE' => 'ddeb',
 };
 
 use Errno qw(ENOENT EXDEV);
