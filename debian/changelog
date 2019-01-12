@@ -1,3 +1,9 @@
+debhelper (12ubuntu2~ppa1) bionic; urgency=medium
+
+  * Backport to bionic
+
+ -- Dominik Stadler (Ubuntu key) <dominik.stadler@gmx.at>  Sat, 12 Jan 2019 12:59:42 +0100
+
 debhelper (12ubuntu1) disco; urgency=medium
 
   * Merge from Debian Sid. Remaining changes:
