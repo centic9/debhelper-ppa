@@ -2248,6 +2248,19 @@ debhelper (9.20160618) unstable; urgency=medium
 
  -- Niels Thykier <niels@thykier.net>  Sat, 18 Jun 2016 14:41:05 +0000
 
+debhelper (9.20160403ubuntu2~ppa2) trusty; urgency=medium
+
+  * Try with lower versoin of dpkg as they depend on newer 
+    versions of each other!
+
+ -- Dominik Stadler (Ubuntu key) <dominik.stadler@gmx.at>  Sun, 24 Apr 2016 13:38:23 +0200
+
+debhelper (9.20160403ubuntu2~ppa1) trusty; urgency=medium
+
+  * Backport to trusty.
+
+ -- Dominik Stadler (Ubuntu key) <dominik.stadler@gmx.at>  Sun, 24 Apr 2016 11:20:21 +0200
+
 debhelper (9.20160403ubuntu1) yakkety; urgency=medium
 
   * Merge from Debian unstable.  Remaining changes:
